@@ -30,7 +30,7 @@ npm install
 Create a `.env` file in the mobile-app directory:
 
 ```env
-EXPO_PUBLIC_API_URL=https://your-api-gateway-url.amazonaws.com/v1
+EXPO_PUBLIC_API_URL=https://<your-backend-url>
 ```
 
 ## Running the App
@@ -145,4 +145,4 @@ Ensure Android Studio and emulator are properly installed and configured.
 
 ## License
 
-MIT
+CC BY 4.0

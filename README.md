@@ -18,7 +18,7 @@ The platform collects patient symptoms, applies medical reasoning using foundati
 - **Primary File Storage**: Google Cloud Storage (GCS)
 - **AI Engine**: Vertex AI provider support (MedGemma-capable via provider abstraction)
 - **Frontend**: React/Vite dashboard + clinician app
-- **Infra**: Current repo includes legacy AWS CDK and in-progress GCP migration assets
+- **Infra**: GCP-first deployment (Cloud Run + Firestore/GCS/Vertex), with legacy AWS artifacts retained for history
 
 ## Project Structure
 
@@ -181,4 +181,5 @@ Key optimizations:
 
 ## License
 
-MIT
+CC BY 4.0 (`CC-BY-4.0`).  
+See `/LICENSE`.

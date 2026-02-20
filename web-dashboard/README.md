@@ -27,7 +27,8 @@ npm install
 Create a `.env` file in the web-dashboard directory:
 
 ```env
-VITE_API_URL=https://your-api-gateway-url.amazonaws.com/v1
+VITE_API_URL=https://<your-backend-url>
+VITE_KAGGLE_API_URL=
 ```
 
 ## Running the Dashboard
@@ -57,17 +58,13 @@ npm run build
 
 The built files will be in the `dist/` directory.
 
-### Deploy to S3 + CloudFront
+### Deploy to Static Hosting (Recommended)
 
 ```bash
 # Build the app
 npm run build
 
-# Upload to S3
-aws s3 sync dist/ s3://your-dashboard-bucket/ --delete
-
-# Invalidate CloudFront cache
-aws cloudfront create-invalidation --distribution-id YOUR_DIST_ID --paths "/*"
+# Deploy dist/ to your static host (Cloud Storage + CDN, Netlify, Vercel, etc.)
 ```
 
 ### Deploy to Netlify
@@ -218,4 +215,4 @@ Check your `.env` file and ensure the API URL is correct.
 
 ## License
 
-MIT
+CC BY 4.0

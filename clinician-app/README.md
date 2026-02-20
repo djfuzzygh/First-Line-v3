@@ -47,7 +47,7 @@ npm install
 
 Create a `.env` file:
 ```
-VITE_API_URL=https://wsvwbxo112.execute-api.us-east-1.amazonaws.com/v1
+VITE_API_URL=https://<your-backend-url>
 ```
 
 ### Development
@@ -129,8 +129,8 @@ The app connects to the FirstLine backend API for:
 
 ## Deployment
 
-### Option 1: CloudFront (Recommended)
-Deploy alongside the admin dashboard using AWS CDK.
+### Option 1: Static Hosting (Recommended)
+Build and deploy `dist/` to your preferred static host.
 
 ### Option 2: Vercel/Netlify
 ```bash
@@ -167,4 +167,4 @@ For issues or questions, contact the FirstLine development team.
 
 ## License
 
-MIT
+CC BY 4.0

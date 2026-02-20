@@ -23,13 +23,13 @@ This repository contains two frontend applications for the FirstLine Healthcare 
                               │
                               ▼
                     ┌─────────────────┐
-                    │   API Gateway   │
-                    │   (AWS)         │
+                    │  Backend API    │
+                    │ (Cloud Run/GCP) │
                     └─────────────────┘
                               │
                               ▼
                     ┌─────────────────┐
-                    │  Lambda Backend │
+                    │ FirstLine Backend│
                     │  (TypeScript)   │
                     └─────────────────┘
 ```
@@ -62,12 +62,13 @@ Both applications require API endpoint configuration:
 
 ### Mobile App (.env)
 ```env
-EXPO_PUBLIC_API_URL=https://your-api-gateway-url.amazonaws.com/v1
+EXPO_PUBLIC_API_URL=https://<your-backend-url>
 ```
 
 ### Web Dashboard (.env)
 ```env
-VITE_API_URL=https://your-api-gateway-url.amazonaws.com/v1
+VITE_API_URL=https://<your-backend-url>
+VITE_KAGGLE_API_URL=
 ```
 
 ## Features Comparison
@@ -120,11 +121,7 @@ VITE_API_URL=https://your-api-gateway-url.amazonaws.com/v1
 ## Development Workflow
 
 ### 1. Backend First
-Ensure the backend API is deployed and accessible:
-```bash
-cd infrastructure
-npm run deploy:dev
-```
+Ensure the backend API is running/deployed and accessible.
 
 ### 2. Configure Endpoints
 Update `.env` files in both frontend applications with the API Gateway URL.
@@ -169,18 +166,11 @@ expo build:android
 
 ### Web Dashboard
 
-#### AWS S3 + CloudFront
+#### Static Hosting
 ```bash
 cd web-dashboard
 npm run build
-
-# Upload to S3
-aws s3 sync dist/ s3://firstline-dashboard/ --delete
-
-# Invalidate CloudFront
-aws cloudfront create-invalidation \
-  --distribution-id YOUR_DIST_ID \
-  --paths "/*"
+# Deploy dist/ folder to your static host
 ```
 
 #### Netlify
@@ -287,7 +277,7 @@ npm test
 ### Mobile App Won't Connect to API
 1. Check `.env` file has correct API URL
 2. Ensure device/simulator can reach the API
-3. Check API Gateway CORS settings
+3. Check backend CORS settings
 4. Verify authentication token is valid
 
 ### Web Dashboard Shows No Data
@@ -319,4 +309,4 @@ For issues or questions:
 
 ## License
 
-MIT
+CC BY 4.0

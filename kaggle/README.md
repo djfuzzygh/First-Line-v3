@@ -33,3 +33,7 @@ Use `kaggle/writeup-template.md` as starter.
 - `kaggle/reproducibility.md`
 - `kaggle/notebook-setup.md`
 - `kaggle/KAGGLE_NOTEBOOK_CELLS.md`
+
+## License
+
+Project license is `CC BY 4.0` (see `/LICENSE`).
