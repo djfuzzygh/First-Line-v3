@@ -1,0 +1,17 @@
+{
+  "dev": {
+    "environment": "dev",
+    "region": "us-east-1",
+    "bedrockModelId": "anthropic.claude-3-haiku-20240307-v1:0"
+  },
+  "staging": {
+    "environment": "staging",
+    "region": "us-east-1",
+    "bedrockModelId": "anthropic.claude-3-haiku-20240307-v1:0"
+  },
+  "prod": {
+    "environment": "prod",
+    "region": "us-east-1",
+    "bedrockModelId": "anthropic.claude-3-sonnet-20240229-v1:0"
+  }
+}

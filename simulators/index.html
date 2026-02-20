@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FirstLine Multi-Channel Simulator</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-overlay"></div>
+    
+    <div class="app-container">
+        <header>
+            <div class="logo">
+                <span class="logo-icon">⚕️</span>
+                <h1>FirstLine <span>Simulator</span></h1>
+            </div>
+            <nav id="channel-tabs">
+                <button class="tab-btn active" data-channel="sms">SMS</button>
+                <button class="tab-btn" data-channel="voice">Voice</button>
+                <button class="tab-btn" data-channel="ussd">USSD</button>
+            </nav>
+        </header>
+
+        <main class="simulator-main">
+            <!-- SMS Simulator -->
+            <section id="sms-simulator" class="simulator-panel active">
+                <div class="phone-frame">
+                    <div class="phone-screen">
+                        <div class="chat-header">
+                            <div class="avatar">FL</div>
+                            <div class="contact-info">
+                                <div class="name">FirstLine Triage</div>
+                                <div class="status">Online</div>
+                            </div>
+                        </div>
+                        <div id="sms-history" class="chat-history">
+                            <div class="message system">Welcome to FirstLine SMS Simulator</div>
+                        </div>
+                        <div class="chat-input-area">
+                            <input type="text" id="sms-input" placeholder="Type a message...">
+                            <button id="sms-send">Send</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="simulator-info">
+                    <h2>SMS Triage Flow</h2>
+                    <p>Simulate a text-based triage conversation. Type <strong>START</strong> to begin.</p>
+                    <div class="stats-card">
+                        <div class="stat">
+                            <label>Encounter ID</label>
+                            <span id="sms-encounter-id">-</span>
+                        </div>
+                        <div class="stat">
+                            <label>Current Step</label>
+                            <span id="sms-step">START</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Voice Simulator -->
+            <section id="voice-simulator" class="simulator-panel">
+                <div class="phone-frame">
+                    <div class="phone-screen voice-display">
+                        <div class="caller-id">FirstLine Healthcare</div>
+                        <div class="call-status">Dialing...</div>
+                        <div class="call-timer">00:00</div>
+                        <div class="voice-wave">
+                            <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                        </div>
+                        <div class="call-controls">
+                            <button class="call-btn end-call">End Call</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="simulator-info">
+                    <h2>Voice Triage Flow</h2>
+                    <p>Demonstrates the AI-driven interactive voice response system.</p>
+                    <div class="log-panel" id="voice-logs">
+                        <div class="log-entry">Waiting for call...</div>
+                    </div>
+                    <button id="voice-initiate" class="action-btn">Initiate Call</button>
+                </div>
+            </section>
+
+            <!-- USSD Simulator -->
+            <section id="ussd-simulator" class="simulator-panel">
+                <div class="feature-phone-frame">
+                    <div class="ussd-screen">
+                        <div id="ussd-content" class="ussd-content">
+                            Welcome to FirstLine
+                            1. Start Triage
+                            2. Language
+                        </div>
+                        <div class="ussd-input-line">
+                            <input type="text" id="ussd-input" maxlength="2">
+                        </div>
+                        <div class="ussd-actions">
+                            <button id="ussd-cancel">Cancel</button>
+                            <button id="ussd-send">Send</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="simulator-info">
+                    <h2>USSD Feature Phone Simulation</h2>
+                    <p>Ultra-low bandwidth triage for areas without data coverage.</p>
+                    <div class="stats-card">
+                        <div class="stat">
+                            <label>Session ID</label>
+                            <span id="ussd-session-id">ussd-123456</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
