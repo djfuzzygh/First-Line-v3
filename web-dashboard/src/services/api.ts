@@ -29,10 +29,38 @@ export function setKaggleApiUrl(url: string): void {
 }
 
 function getActiveBaseUrl(): string {
-  if (getDataSourceMode() === 'kaggle') {
-    return getKaggleApiUrl();
-  }
   return API_BASE_URL;
+}
+
+function normalizeUrl(url: string): string {
+  return url.trim().replace(/\/+$/, '');
+}
+
+function getKaggleInferUrl(): string {
+  const configured = getKaggleApiUrl();
+  if (!configured) {
+    return `${normalizeUrl(API_BASE_URL)}/kaggle/infer`;
+  }
+  const base = normalizeUrl(configured);
+  if (base.endsWith('/infer')) {
+    return base;
+  }
+  return `${base}/infer`;
+}
+
+function getKaggleHealthUrl(): string {
+  const configured = getKaggleApiUrl();
+  if (!configured) {
+    return `${normalizeUrl(API_BASE_URL)}/kaggle/health`;
+  }
+  const base = normalizeUrl(configured);
+  if (base.endsWith('/health')) {
+    return base;
+  }
+  if (base.endsWith('/infer')) {
+    return `${base.slice(0, -'/infer'.length)}/health`;
+  }
+  return `${base}/health`;
 }
 
 const api = axios.create({
@@ -174,12 +202,19 @@ export const kaggleApi = {
     location?: string;
     followupResponses?: string[];
   }) {
-    const response = await api.post('/kaggle/infer', payload);
+    const response = await axios.post(getKaggleInferUrl(), payload, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      timeout: 30000,
+    });
     return response.data;
   },
 
   async health() {
-    const response = await api.get('/kaggle/health');
+    const response = await axios.get(getKaggleHealthUrl(), {
+      timeout: 30000,
+    });
     return response.data;
   },
 };

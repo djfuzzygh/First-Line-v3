@@ -18,7 +18,7 @@ const referralService = new ReferralService({
 });
 
 const expressHandler = async (req: Request, res: Response): Promise<void> => {
-  const id = req.params.id;
+  const id = asSingle(req.params.id);
 
   try {
     if (req.method === 'POST' && id) {
@@ -90,6 +90,13 @@ const expressHandler = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const handler = asDualHandler(expressHandler);
+
+function asSingle(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) {
+    return value[0] || '';
+  }
+  return value || '';
+}
 
 function sendErrorResponse(
   res: Response,

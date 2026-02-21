@@ -14,7 +14,7 @@ export class VertexAIService implements AIProvider {
   constructor(config: Partial<AIProviderConfig>) {
     this.config = {
       provider: 'vertexai',
-      modelId: config.modelId || 'medgemma-2b',
+      modelId: config.modelId || 'medgemma-4b-it',
       projectId: config.projectId || process.env.GCP_PROJECT_ID || '',
       region: config.region || process.env.GCP_REGION || 'us-central1',
       maxInputTokens: config.maxInputTokens || 2000,

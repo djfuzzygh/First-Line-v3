@@ -65,6 +65,6 @@ FIRSTLINE_API_URL=<BACKEND_URL> python3 kaggle/smoke_test.py
 ## 7. Competition package
 
 Use files in `kaggle/`:
-- `kaggle/writeup-template.md`
+- `docs/kaggle/writeup-template.md`
 - `kaggle/checklist.md`
 - `kaggle/smoke_test.py`

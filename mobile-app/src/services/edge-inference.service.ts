@@ -39,8 +39,9 @@ export class EdgeInferenceService {
         } catch (error) {
             console.warn('MediaPipe inference failed, falling back to basic rules:', error);
             return {
+                riskTier: 'YELLOW',
                 ...deterministicResult,
-                source: 'Hybrid (Fallback)'
+                source: 'Hybrid'
             };
         }
     }

@@ -5,8 +5,8 @@ This manifest maps the required competition deliverables to concrete project ass
 ## Required Deliverables
 
 1. Writeup (<= 3 pages)
-- File: `kaggle/writeup.md`
-- Starter: `kaggle/writeup-template.md`
+- File: `docs/kaggle/writeup.md`
+- Starter: `docs/kaggle/writeup-template.md`
 
 2. Video (<= 3 minutes)
 - Link placeholder in: `kaggle/writeup.md`
@@ -38,4 +38,3 @@ This manifest maps the required competition deliverables to concrete project ass
 3. Run triage
 4. View dashboard stats
 5. Switch dashboard Data Source to Kaggle mode
-

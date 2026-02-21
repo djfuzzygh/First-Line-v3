@@ -1,17 +1,16 @@
 """
 Kaggle Notebook MedGemma Server (Python)
 
-Use in Kaggle notebook cells:
-1) !python -m pip install -q fastapi uvicorn pyngrok transformers accelerate bitsandbytes
-2) %run /kaggle/working/firstline/kaggle/kaggle_medgemma_server.py
+Serves MedGemma 4B as a FastAPI inference endpoint for FirstLine 2.0.
 
-Optional Kaggle secrets:
-- HUGGINGFACE_TOKEN
-- NGROK_AUTHTOKEN
+Prerequisites:
+  - Kaggle Notebook with GPU (T4 or P100) and Internet enabled
+  - HuggingFace token with MedGemma access (add as Kaggle secret "HUGGINGFACE_TOKEN")
+  - Optional: NGROK_AUTHTOKEN secret for public URL
 
-This server exposes:
-- GET  /health
-- POST /infer
+Endpoints:
+  GET  /health  — model status
+  POST /infer   — multi-task inference (triage, normalize_intake, generate_followup, generate_referral)
 """
 
 import json
@@ -26,12 +25,14 @@ import uvicorn
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
-MODEL_ID = os.getenv("MEDGEMMA_MODEL_ID", "google/medgemma-2b-it")
+MODEL_ID = os.getenv("MEDGEMMA_MODEL_ID", "google/medgemma-4b-it")
 HOST = "0.0.0.0"
 PORT = int(os.getenv("PORT", "8000"))
 
-app = FastAPI(title="FirstLine Kaggle MedGemma Server", version="1.0.0")
+app = FastAPI(title="FirstLine Kaggle MedGemma Server", version="2.0.0")
 
+
+# ── Request / Response schemas ──────────────────────────────────────────────
 
 class InferRequest(BaseModel):
     symptoms: str = Field(..., min_length=1)
@@ -57,22 +58,25 @@ class InferResponse(BaseModel):
     source: str
 
 
-MODEL_STATE = {
-    "loaded": False,
-    "error": "",
-    "model_name": MODEL_ID,
-}
-TOKENIZER = None
+# ── Global state ────────────────────────────────────────────────────────────
+
+MODEL_STATE = {"loaded": False, "error": "", "model_name": MODEL_ID}
+PROCESSOR = None
 MODEL = None
 
 
+# ── Utilities ───────────────────────────────────────────────────────────────
+
 def _clean_json_block(text: str) -> str:
+    """Extract first JSON object from model output."""
     text = text.strip()
     text = re.sub(r"^```(?:json)?", "", text, flags=re.IGNORECASE).strip()
     text = re.sub(r"```$", "", text).strip()
     m = re.search(r"\{[\s\S]*\}", text)
     return m.group(0) if m else text
 
+
+# ── Heuristic fallback (when model is not loaded) ───────────────────────────
 
 def _heuristic_fallback(symptoms_text: str) -> InferResponse:
     s = symptoms_text.lower()
@@ -84,49 +88,40 @@ def _heuristic_fallback(symptoms_text: str) -> InferResponse:
 
     if red:
         return InferResponse(
-            riskTier="RED",
-            referralRecommended=True,
+            riskTier="RED", referralRecommended=True,
             recommendedNextSteps=["Seek emergency care immediately."],
             watchOuts=["Breathing difficulty", "Loss of consciousness"],
             dangerSigns=["Critical symptom pattern"],
             uncertainty="LOW",
             disclaimer="This is not a diagnosis. Seek professional medical care.",
             reasoning="Heuristic detected emergency red-flag symptoms.",
-            model=MODEL_ID,
-            source="kaggle-heuristic",
+            model=MODEL_ID, source="kaggle-heuristic",
         )
-
     if yellow:
         return InferResponse(
-            riskTier="YELLOW",
-            referralRecommended=True,
+            riskTier="YELLOW", referralRecommended=True,
             recommendedNextSteps=["Visit a clinic within 24 hours.", "Monitor symptoms closely."],
             watchOuts=["Worsening fever", "Persistent vomiting", "New danger signs"],
-            dangerSigns=[],
-            uncertainty="MEDIUM",
+            dangerSigns=[], uncertainty="MEDIUM",
             disclaimer="This is not a diagnosis. Seek professional medical care.",
             reasoning="Heuristic detected moderate-risk symptoms.",
-            model=MODEL_ID,
-            source="kaggle-heuristic",
+            model=MODEL_ID, source="kaggle-heuristic",
         )
-
     return InferResponse(
-        riskTier="GREEN",
-        referralRecommended=False,
+        riskTier="GREEN", referralRecommended=False,
         recommendedNextSteps=["Home care and monitor symptoms."],
         watchOuts=["If symptoms worsen, seek care promptly."],
-        dangerSigns=[],
-        uncertainty="MEDIUM",
+        dangerSigns=[], uncertainty="MEDIUM",
         disclaimer="This is not a diagnosis. Seek professional medical care.",
         reasoning="No high-risk symptom terms detected.",
-        model=MODEL_ID,
-        source="kaggle-heuristic",
+        model=MODEL_ID, source="kaggle-heuristic",
     )
 
 
-def _build_prompt(payload: InferRequest) -> str:
-    return f"""
-You are a clinical triage assistant. Return ONLY valid JSON.
+# ── Prompt builders ─────────────────────────────────────────────────────────
+
+def _build_triage_prompt(payload: InferRequest) -> str:
+    return f"""You are a clinical triage assistant. Return ONLY valid JSON.
 
 Patient:
 - Age: {payload.age}
@@ -145,61 +140,7 @@ Return JSON with this exact schema:
   "uncertainty": "LOW|MEDIUM|HIGH",
   "disclaimer": "This is not a diagnosis. Seek professional medical care.",
   "reasoning": "Brief clinical reasoning"
-}}
-""".strip()
-
-
-def _load_model():
-    global TOKENIZER, MODEL
-    token = os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HF_TOKEN")
-    try:
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-
-        kwargs = {"token": token} if token else {}
-        TOKENIZER = AutoTokenizer.from_pretrained(MODEL_ID, **kwargs)
-
-        dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-        MODEL = AutoModelForCausalLM.from_pretrained(
-            MODEL_ID,
-            torch_dtype=dtype,
-            device_map="auto",
-            **kwargs,
-        )
-        MODEL_STATE["loaded"] = True
-        MODEL_STATE["error"] = ""
-    except Exception as e:
-        MODEL_STATE["loaded"] = False
-        MODEL_STATE["error"] = str(e)
-
-
-@app.get("/health")
-def health():
-    return {
-        "status": "ok",
-        "modelLoaded": MODEL_STATE["loaded"],
-        "modelId": MODEL_STATE["model_name"],
-        "error": MODEL_STATE["error"],
-        "gpuAvailable": torch.cuda.is_available(),
-        "cudaDeviceCount": torch.cuda.device_count(),
-        "timestamp": time.time(),
-    }
-
-
-def _run_medgemma(prompt: str, max_tokens: int = 350) -> str:
-    """Run MedGemma inference and return decoded text."""
-    inputs = TOKENIZER(prompt, return_tensors="pt")
-    if torch.cuda.is_available():
-        inputs = {k: v.to("cuda") for k, v in inputs.items()}
-    with torch.no_grad():
-        output = MODEL.generate(
-            **inputs,
-            max_new_tokens=max_tokens,
-            temperature=0.2,
-            top_p=0.9,
-            do_sample=True,
-            pad_token_id=TOKENIZER.eos_token_id,
-        )
-    return TOKENIZER.decode(output[0], skip_special_tokens=True)
+}}""".strip()
 
 
 def _build_normalize_prompt(payload: InferRequest) -> str:
@@ -243,41 +184,115 @@ Write 2-3 paragraphs covering: clinical presentation, assessment rationale, and 
 }}""".strip()
 
 
+PROMPT_BUILDERS = {
+    "triage": _build_triage_prompt,
+    "normalize_intake": _build_normalize_prompt,
+    "generate_followup": _build_followup_prompt,
+    "generate_referral": _build_referral_prompt,
+}
+
+
+# ── Model loading ───────────────────────────────────────────────────────────
+
+def _load_model():
+    global PROCESSOR, MODEL
+    token = os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HF_TOKEN")
+    try:
+        from transformers import AutoProcessor, AutoModelForImageTextToText
+
+        kwargs = {"token": token} if token else {}
+
+        print(f"Loading processor for {MODEL_ID}...")
+        PROCESSOR = AutoProcessor.from_pretrained(MODEL_ID, **kwargs)
+
+        dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+        print(f"Loading model {MODEL_ID} (dtype={dtype})...")
+        MODEL = AutoModelForImageTextToText.from_pretrained(
+            MODEL_ID,
+            torch_dtype=dtype,
+            device_map="auto",
+            **kwargs,
+        )
+        MODEL_STATE["loaded"] = True
+        MODEL_STATE["error"] = ""
+        print(f"Model loaded successfully on {next(MODEL.parameters()).device}")
+    except Exception as e:
+        MODEL_STATE["loaded"] = False
+        MODEL_STATE["error"] = str(e)
+        print(f"MODEL LOAD FAILED: {e}")
+
+
+# ── Inference helper ────────────────────────────────────────────────────────
+
+def _run_medgemma(prompt: str, max_tokens: int = 350) -> str:
+    """Run MedGemma inference using chat template and return decoded text."""
+    messages = [
+        {"role": "user", "content": [{"type": "text", "text": prompt}]}
+    ]
+
+    inputs = PROCESSOR.apply_chat_template(
+        messages,
+        add_generation_prompt=True,
+        tokenize=True,
+        return_dict=True,
+        return_tensors="pt",
+    ).to(MODEL.device)
+
+    with torch.no_grad():
+        output = MODEL.generate(
+            **inputs,
+            max_new_tokens=max_tokens,
+            temperature=0.2,
+            top_p=0.9,
+            do_sample=True,
+        )
+
+    # Decode only the new tokens (skip input)
+    input_len = inputs["input_ids"].shape[-1]
+    return PROCESSOR.decode(output[0][input_len:], skip_special_tokens=True)
+
+
+# ── Endpoints ───────────────────────────────────────────────────────────────
+
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "modelLoaded": MODEL_STATE["loaded"],
+        "modelId": MODEL_STATE["model_name"],
+        "error": MODEL_STATE["error"],
+        "gpuAvailable": torch.cuda.is_available(),
+        "cudaDeviceCount": torch.cuda.device_count(),
+        "timestamp": time.time(),
+    }
+
+
 @app.post("/infer")
 def infer(payload: InferRequest):
     task = payload.task or "triage"
 
-    # Handle non-triage tasks (normalize, followup, referral) — return flexible JSON
-    if task in ("normalize_intake", "generate_followup", "generate_referral") and MODEL_STATE["loaded"] and MODEL and TOKENIZER:
-        try:
-            prompt_map = {
-                "normalize_intake": _build_normalize_prompt,
-                "generate_followup": _build_followup_prompt,
-                "generate_referral": _build_referral_prompt,
-            }
-            prompt = prompt_map[task](payload)
-            text = _run_medgemma(prompt, max_tokens=250)
-            json_text = _clean_json_block(text)
-            data = json.loads(json_text)
-            data["model"] = MODEL_ID
-            data["source"] = "kaggle-medgemma"
-            return data
-        except Exception:
-            pass  # Fall through to triage/heuristic path
-
-    if not MODEL_STATE["loaded"] or MODEL is None or TOKENIZER is None:
+    if not MODEL_STATE["loaded"] or MODEL is None or PROCESSOR is None:
         return _heuristic_fallback(payload.symptoms)
 
+    builder = PROMPT_BUILDERS.get(task, _build_triage_prompt)
+    max_tok = 250 if task != "triage" else 350
+
     try:
-        prompt = _build_prompt(payload)
-        text = _run_medgemma(prompt, max_tokens=350)
+        prompt = builder(payload)
+        text = _run_medgemma(prompt, max_tokens=max_tok)
         json_text = _clean_json_block(text)
         data = json.loads(json_text)
 
+        # For non-triage tasks, return the parsed JSON directly
+        if task != "triage":
+            data["model"] = MODEL_ID
+            data["source"] = "kaggle-medgemma"
+            return data
+
+        # For triage, normalize and return InferResponse
         risk = str(data.get("riskTier", "YELLOW")).upper()
         if risk not in {"RED", "YELLOW", "GREEN"}:
             risk = "YELLOW"
-
         uncertainty = str(data.get("uncertainty", "MEDIUM")).upper()
         if uncertainty not in {"LOW", "MEDIUM", "HIGH"}:
             uncertainty = "MEDIUM"
@@ -294,9 +309,12 @@ def infer(payload: InferRequest):
             model=MODEL_ID,
             source="kaggle-medgemma",
         )
-    except Exception:
+    except Exception as e:
+        print(f"Inference error ({task}): {e}")
         return _heuristic_fallback(payload.symptoms)
 
+
+# ── Server startup ──────────────────────────────────────────────────────────
 
 def start_server_background():
     thread = threading.Thread(
@@ -313,10 +331,8 @@ def start_ngrok_if_available():
     if not token:
         print("NGROK_AUTHTOKEN not set. Skipping ngrok tunnel.")
         return None
-
     try:
         from pyngrok import ngrok
-
         ngrok.set_auth_token(token)
         tunnel = ngrok.connect(PORT, "http")
         print(f"NGROK_URL={tunnel.public_url}")
@@ -340,4 +356,3 @@ if __name__ == "__main__":
     print("Server running. Keep this cell alive.")
     while True:
         time.sleep(3600)
-

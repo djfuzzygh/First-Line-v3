@@ -13,10 +13,17 @@ const authService = new AuthService(firestoreService);
 
 function getAction(req: Request): string {
   if (req.params.action) {
-    return req.params.action.toLowerCase();
+    return asSingle(req.params.action).toLowerCase();
   }
   const segments = req.path.split('/').filter(Boolean);
   return (segments[segments.length - 1] || '').toLowerCase();
+}
+
+function asSingle(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) {
+    return value[0] || '';
+  }
+  return value || '';
 }
 
 const expressHandler = async (req: Request, res: Response): Promise<void> => {

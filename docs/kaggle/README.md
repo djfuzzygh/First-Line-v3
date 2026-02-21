@@ -25,14 +25,18 @@ Expected output: `SMOKE_TEST_OK`
 - Public code repository link
 - Video demo link (3 minutes max)
 
-Use `kaggle/writeup-template.md` as starter.
+Use `docs/kaggle/writeup-template.md` as starter.
 
 ## Added Submission Support Docs
 
-- `kaggle/submission-manifest.md`
-- `kaggle/reproducibility.md`
-- `kaggle/notebook-setup.md`
-- `kaggle/KAGGLE_NOTEBOOK_CELLS.md`
+- `docs/kaggle/submission-manifest.md`
+- `docs/kaggle/reproducibility.md`
+- `docs/kaggle/notebook-setup.md`
+- `docs/kaggle/KAGGLE_NOTEBOOK_CELLS.md`
+
+Runtime scripts (kept outside docs):
+- `kaggle/smoke_test.py`
+- `kaggle/kaggle_medgemma_server.py`
 
 ## License
 

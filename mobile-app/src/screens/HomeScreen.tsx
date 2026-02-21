@@ -126,7 +126,7 @@ export default function HomeScreen({ navigation }: Props) {
             </Badge>
             {offlineCount > 0 && (
               <Badge style={styles.queueBadge}>
-                {offlineCount} pending sync
+                {`${offlineCount} pending sync`}
               </Badge>
             )}
           </View>

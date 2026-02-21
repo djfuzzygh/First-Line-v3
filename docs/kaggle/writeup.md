@@ -52,8 +52,8 @@ Patient Channels          Backend (Cloud Run)           AI Layer
 
 | Mode | Model | Use Case |
 |------|-------|----------|
-| `vertexai` | `medgemma-2b` via Vertex AI | Production deployment on GCP |
-| `kaggle` | `medgemma-2b-it` via Kaggle Notebook | Reproducible demo for judges |
+| `vertexai` | `medgemma-4b-it` via Vertex AI | Production deployment on GCP |
+| `kaggle` | `medgemma-4b-it` via Kaggle Notebook | Reproducible demo for judges |
 
 The AI provider abstraction (`AIProviderFactory`) allows runtime switching between providers without code changes. All four MedGemma tasks (normalize, followup, triage, referral) flow through the same provider interface.
 

@@ -274,20 +274,42 @@ export class TriageService {
 
     // Step 1: Intake Normalization (Agentic Step 1)
     console.log('Agentic Step 1: Normalizing intake...');
-    const normalizedIntake = await this.aiProvider.normalizeIntake(
-      encounter.Symptoms,
-      { age: encounter.Demographics.age, sex: encounter.Demographics.sex }
-    );
-
-    // Step 2: Adaptive Follow-up Generation (Agentic Step 2)
-    // If we have no follow-ups yet, and the symptoms are vague, ask for more info
-    let followupQuestions: string[] = [];
-    if (followupResponses.length === 0 && normalizedIntake.severity === 'Unknown') {
-      console.log('Agentic Step 2: Generating adaptive follow-up questions...');
-      followupQuestions = await this.aiProvider.generateFollowupQuestions(
+    let normalizedIntake: {
+      primaryComplaint: string;
+      duration: string;
+      severity: string;
+      extractedSymptoms: string[];
+    };
+    try {
+      normalizedIntake = await this.aiProvider.normalizeIntake(
         encounter.Symptoms,
         { age: encounter.Demographics.age, sex: encounter.Demographics.sex }
       );
+    } catch (error) {
+      console.error('Intake normalization failed; continuing with raw symptoms:', error);
+      normalizedIntake = {
+        primaryComplaint: encounter.Symptoms,
+        duration: 'Unknown',
+        severity: 'Unknown',
+        extractedSymptoms: [],
+      };
+    }
+
+    // Step 2: Adaptive Follow-up Generation (Agentic Step 2)
+    // If we have no follow-ups yet, and the symptoms are vague, ask for more info.
+    // This step is best-effort only; failure should not block triage.
+    let followupQuestions: string[] = [];
+    if (followupResponses.length === 0 && normalizedIntake.severity === 'Unknown') {
+      console.log('Agentic Step 2: Generating adaptive follow-up questions...');
+      try {
+        followupQuestions = await this.aiProvider.generateFollowupQuestions(
+          encounter.Symptoms,
+          { age: encounter.Demographics.age, sex: encounter.Demographics.sex }
+        );
+      } catch (error) {
+        console.error('Follow-up generation failed; continuing without suggested questions:', error);
+        followupQuestions = [];
+      }
     }
     console.log(`Normalized Complaint: ${normalizedIntake.primaryComplaint}`);
 

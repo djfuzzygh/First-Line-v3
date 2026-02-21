@@ -40,7 +40,7 @@ import {
 import api from '../../services/api';
 
 interface AIProviderConfig {
-  activeProvider: 'bedrock' | 'vertexai' | 'openai' | 'kaggle';
+  activeProvider: 'bedrock' | 'vertexai' | 'openai' | 'kaggle' | 'huggingface';
   bedrock: {
     region: string;
     modelId: string;
@@ -56,6 +56,13 @@ interface AIProviderConfig {
     temperature: number;
   };
   kaggle: {
+    endpoint: string;
+    apiKey: string;
+    modelId: string;
+    maxTokens: number;
+    temperature: number;
+  };
+  huggingface: {
     endpoint: string;
     apiKey: string;
     modelId: string;
@@ -105,6 +112,13 @@ export default function AIProviders() {
       endpoint: '',
       apiKey: '',
       modelId: 'medgemma-kaggle',
+      maxTokens: 500,
+      temperature: 0.2,
+    },
+    huggingface: {
+      endpoint: '',
+      apiKey: '',
+      modelId: 'google/medgemma-2b-it',
       maxTokens: 500,
       temperature: 0.2,
     },
@@ -266,6 +280,12 @@ export default function AIProviders() {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   OpenAI (GPT-4)
                   <Chip label="Coming Soon" size="small" />
+                </Box>
+              </MenuItem>
+              <MenuItem value="huggingface">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  Hugging Face (MedGemma)
+                  <Chip label="Endpoint/API" size="small" color="info" />
                 </Box>
               </MenuItem>
             </Select>
@@ -560,6 +580,7 @@ export default function AIProviders() {
                     <MenuItem value="bedrock">AWS Bedrock</MenuItem>
                     <MenuItem value="kaggle">Kaggle Endpoint</MenuItem>
                     <MenuItem value="openai">OpenAI</MenuItem>
+                    <MenuItem value="huggingface">Hugging Face</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>

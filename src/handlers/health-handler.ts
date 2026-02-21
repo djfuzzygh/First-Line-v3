@@ -6,7 +6,7 @@ import { asDualHandler } from '../utils/dual-handler';
 // Initialize services
 const firestoreService = new FirestoreService();
 const aiProvider = AIProviderFactory.create({
-  provider: ((process.env.AI_PROVIDER as 'vertexai' | 'bedrock' | 'kaggle' | 'openai') || 'vertexai'),
+  provider: ((process.env.AI_PROVIDER as 'vertexai' | 'bedrock' | 'kaggle' | 'openai' | 'huggingface') || 'vertexai'),
 });
 
 interface ComponentHealth {
@@ -53,6 +53,16 @@ async function checkVertexAI(): Promise<ComponentHealth> {
     return {
       status: process.env.KAGGLE_INFER_URL ? 'healthy' : 'degraded',
       message: process.env.KAGGLE_INFER_URL ? 'Kaggle endpoint configured' : 'Kaggle endpoint not configured',
+    };
+  }
+
+  if (provider === 'huggingface') {
+    return {
+      status: process.env.HF_INFER_URL || process.env.HF_MODEL_ID ? 'healthy' : 'degraded',
+      message:
+        process.env.HF_INFER_URL || process.env.HF_MODEL_ID
+          ? 'Hugging Face provider configured'
+          : 'Hugging Face provider not configured',
     };
   }
 
@@ -143,7 +153,10 @@ const expressHandler = async (_req: Request, res: Response): Promise<void> => {
       },
     };
 
-    res.status(overallStatus === 'healthy' ? 200 : 503).json(response);
+    const failOnDegraded = process.env.HEALTHCHECK_FAIL_ON_DEGRADED === 'true';
+    const isFailure =
+      overallStatus === 'unhealthy' || (overallStatus === 'degraded' && failOnDegraded);
+    res.status(isFailure ? 503 : 200).json(response);
   } catch (error) {
     res.status(500).json({
       status: 'unhealthy',

@@ -49,7 +49,7 @@ export default function NewEncounter() {
       if (formData.respiratoryRate) vitals.respiratoryRate = parseInt(formData.respiratoryRate);
 
       const response = await encounterAPI.create({
-        channel: 'web',
+        channel: 'app',
         demographics: {
           age: parseInt(formData.age),
           sex: formData.sex,

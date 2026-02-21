@@ -9,6 +9,14 @@ interface KaggleInferRequest {
   followupResponses?: string[];
 }
 
+function resolveKaggleInferUrl(rawUrl: string): string {
+  const trimmed = rawUrl.trim().replace(/\/+$/, '');
+  if (trimmed.endsWith('/infer')) {
+    return trimmed;
+  }
+  return `${trimmed}/infer`;
+}
+
 const expressHandler = async (req: Request, res: Response): Promise<void> => {
   const method = req.method;
   const path = req.path;
@@ -43,9 +51,16 @@ const expressHandler = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const upstreamResponse = await fetch(kaggleUrl, {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (process.env.KAGGLE_API_KEY) {
+      headers.Authorization = `Bearer ${process.env.KAGGLE_API_KEY}`;
+    }
+
+    const upstreamResponse = await fetch(resolveKaggleInferUrl(kaggleUrl), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         symptoms,
         age: body.age,

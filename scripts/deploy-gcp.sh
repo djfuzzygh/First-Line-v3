@@ -8,10 +8,14 @@ set -euo pipefail
 IMAGE="gcr.io/${GCP_PROJECT_ID}/${GCP_SERVICE}:$(date +%Y%m%d-%H%M%S)"
 
 echo "Building image: ${IMAGE}"
-gcloud builds submit --tag "${IMAGE}" .
+gcloud builds submit \
+  --project "${GCP_PROJECT_ID}" \
+  --region "${GCP_REGION}" \
+  --tag "${IMAGE}" .
 
 echo "Deploying Cloud Run service: ${GCP_SERVICE}"
 gcloud run deploy "${GCP_SERVICE}" \
+  --project "${GCP_PROJECT_ID}" \
   --image "${IMAGE}" \
   --region "${GCP_REGION}" \
   --platform managed \
@@ -20,4 +24,7 @@ gcloud run deploy "${GCP_SERVICE}" \
   --set-env-vars "GCP_PROJECT_ID=${GCP_PROJECT_ID},GCP_REGION=${GCP_REGION}"
 
 echo "Deploy complete"
-gcloud run services describe "${GCP_SERVICE}" --region "${GCP_REGION}" --format='value(status.url)'
+gcloud run services describe "${GCP_SERVICE}" \
+  --project "${GCP_PROJECT_ID}" \
+  --region "${GCP_REGION}" \
+  --format='value(status.url)'

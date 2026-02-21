@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "firstline2-20260220-014729"
+  },
+  "targets": {
+    "firstline2-20260220-014729": {
+      "hosting": {
+        "dashboard": [
+          "fl2-dashboard-14729"
+        ],
+        "clinician": [
+          "fl2-clinician-14729"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

@@ -8,6 +8,7 @@ import { AIProviderConfig } from './ai-provider.interface';
 import { BedrockService } from './bedrock.service';
 import { VertexAIService } from './vertexai.service';
 import { KaggleAIService } from './kaggle-ai.service';
+import { HuggingFaceAIService } from './huggingface-ai.service';
 
 export class AIProviderFactory {
   static create(config?: Partial<AIProviderConfig>): any {
@@ -26,7 +27,7 @@ export class AIProviderFactory {
 
       case 'vertexai':
         return new VertexAIService({
-          modelId: config?.modelId || process.env.VERTEXAI_MODEL_ID || 'medgemma-2b',
+          modelId: config?.modelId || process.env.VERTEXAI_MODEL_ID || 'medgemma-4b-it',
           projectId: config?.projectId || process.env.GCP_PROJECT_ID,
           region: config?.region || process.env.GCP_REGION || 'us-central1',
           maxInputTokens: config?.maxInputTokens || 2000,
@@ -39,6 +40,17 @@ export class AIProviderFactory {
         return new KaggleAIService({
           modelId: config?.modelId || process.env.KAGGLE_MODEL_NAME || 'medgemma-kaggle',
           endpoint: config?.endpoint || process.env.KAGGLE_INFER_URL || '',
+          maxInputTokens: config?.maxInputTokens || 2000,
+          maxOutputTokens: config?.maxOutputTokens || 500,
+          temperature: config?.temperature || 0.2,
+          timeoutMs: config?.timeoutMs || 30000,
+        });
+
+      case 'huggingface':
+        return new HuggingFaceAIService({
+          modelId: config?.modelId || process.env.HF_MODEL_ID || 'google/medgemma-4b-it',
+          endpoint: config?.endpoint || process.env.HF_INFER_URL || '',
+          apiKey: config?.apiKey || process.env.HF_API_TOKEN || '',
           maxInputTokens: config?.maxInputTokens || 2000,
           maxOutputTokens: config?.maxOutputTokens || 500,
           temperature: config?.temperature || 0.2,

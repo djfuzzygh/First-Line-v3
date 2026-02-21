@@ -13,6 +13,7 @@ const expressHandler = async (req: Request, res: Response): Promise<void> => {
       byProvider: [
         { provider: 'vertexai', cost: 10.95 },
         { provider: 'bedrock', cost: 13.2 },
+        { provider: 'huggingface', cost: 4.5 },
       ],
     });
     return;
@@ -24,11 +25,11 @@ const expressHandler = async (req: Request, res: Response): Promise<void> => {
       Array.isArray(body.providers) && body.providers.length > 0
         ? body.providers
         : ['vertexai'];
-    const results = providers.map((provider: string, index: number) => ({
-      provider,
-      success: true,
-      latency: 780 + index * 140,
-      cost: provider === 'vertexai' ? 0.012 : 0.02,
+      const results = providers.map((provider: string, index: number) => ({
+        provider,
+        success: true,
+        latency: 780 + index * 140,
+      cost: provider === 'vertexai' ? 0.012 : provider === 'huggingface' ? 0.007 : 0.02,
       response: 'Triage simulation completed successfully',
     }));
     res.status(200).json({ results });
@@ -59,6 +60,13 @@ const expressHandler = async (req: Request, res: Response): Promise<void> => {
         maxTokens: 500,
         temperature: 0.2,
       },
+      huggingface: {
+        endpoint: process.env.HF_INFER_URL || '',
+        apiKey: '',
+        modelId: process.env.HF_MODEL_ID || 'google/medgemma-2b-it',
+        maxTokens: 500,
+        temperature: 0.2,
+      },
       openai: {
         apiKey: '',
         modelId: 'gpt-4',
@@ -67,7 +75,7 @@ const expressHandler = async (req: Request, res: Response): Promise<void> => {
       },
       fallback: {
         enabled: true,
-        chain: ['vertexai', 'bedrock'],
+        chain: ['vertexai', 'huggingface', 'bedrock'],
         failureThreshold: 3,
       },
     });

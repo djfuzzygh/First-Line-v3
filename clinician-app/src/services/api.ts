@@ -35,7 +35,7 @@ export interface AuthResponse {
 }
 
 export interface CreateEncounterRequest {
-  channel: string;
+  channel: 'app' | 'sms' | 'voice' | 'ussd';
   demographics: {
     age: number;
     sex: 'M' | 'F' | 'O';

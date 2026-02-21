@@ -7,7 +7,7 @@
 import { AIResponse, Encounter } from '../models';
 
 export interface AIProviderConfig {
-  provider: 'bedrock' | 'vertexai' | 'openai' | 'kaggle';
+  provider: 'bedrock' | 'vertexai' | 'openai' | 'kaggle' | 'huggingface';
   modelId: string;
   region?: string;
   apiKey?: string;

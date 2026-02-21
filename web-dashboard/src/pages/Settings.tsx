@@ -170,11 +170,11 @@ export default function Settings() {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Kaggle Endpoint URL (optional)"
+                  label="Kaggle Base URL (optional)"
                   value={kaggleApiUrl}
                   onChange={(e) => setKaggleApiUrlState(e.target.value)}
-                  placeholder="https://<your-kaggle-proxy>/api"
-                  helperText="If empty, dashboard uses built-in Kaggle demo data."
+                  placeholder="https://<your-kaggle-proxy>"
+                  helperText="Used for /infer and /health only. Leave empty to route through backend /kaggle/*."
                 />
               </Grid>
               <Grid item xs={12} md={6}>

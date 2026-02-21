@@ -168,16 +168,40 @@ export class FirestoreService {
             });
         }
 
-        let query = this.db.collection(this.collectionName).where('GSI1PK', '==', gsi1pk);
+        try {
+            let query = this.db.collection(this.collectionName).where('GSI1PK', '==', gsi1pk);
 
-        if (gsi1skPrefix) {
-            query = query
-                .where('GSI1SK', '>=', gsi1skPrefix)
-                .where('GSI1SK', '<', gsi1skPrefix + '\uf8ff');
+            if (gsi1skPrefix) {
+                query = query
+                    .where('GSI1SK', '>=', gsi1skPrefix)
+                    .where('GSI1SK', '<', gsi1skPrefix + '\uf8ff');
+            }
+
+            const snapshot = await query.get();
+            return snapshot.docs.map(doc => doc.data() as Record<string, any>);
+        } catch (error: any) {
+            const message = String(error?.message || '');
+            const needsIndex = error?.code === 9 || message.includes('requires an index');
+            if (!needsIndex) {
+                throw error;
+            }
+
+            // Temporary fallback while composite index is being built:
+            // query only by GSI1PK (single-field index), then filter in memory.
+            console.warn('Composite index not ready; using queryGSI1 fallback path.');
+            const fallbackSnapshot = await this.db
+                .collection(this.collectionName)
+                .where('GSI1PK', '==', gsi1pk)
+                .get();
+
+            const items = fallbackSnapshot.docs.map(doc => doc.data() as Record<string, any>);
+            if (!gsi1skPrefix) {
+                return items;
+            }
+            return items.filter((item) =>
+                typeof item.GSI1SK === 'string' && item.GSI1SK.startsWith(gsi1skPrefix)
+            );
         }
-
-        const snapshot = await query.get();
-        return snapshot.docs.map(doc => doc.data() as Record<string, any>);
     }
 
     public async update(pk: string, sk: string, updates: Record<string, any>): Promise<void> {

@@ -119,10 +119,13 @@ Note: `infrastructure/` currently contains legacy AWS CDK artifacts. For GCP-fir
 - `FIRESTORE_COLLECTION` (optional, defaults to `FirstLineData`)
 - `GCS_BUCKET` (for referral/doc storage)
 - `VITE_API_URL` (frontend API base URL)
-- `AI_PROVIDER` (`vertexai`, `kaggle`, or `bedrock`; default `vertexai`)
+- `AI_PROVIDER` (`vertexai`, `kaggle`, `huggingface`, or `bedrock`; default `vertexai`)
 - `KAGGLE_INFER_URL` (required when `AI_PROVIDER=kaggle`)
 - `KAGGLE_API_KEY` (optional bearer token for Kaggle endpoint)
 - `KAGGLE_MODEL_NAME` (optional model label for Kaggle provider)
+- `HF_INFER_URL` (optional custom HF endpoint when `AI_PROVIDER=huggingface`)
+- `HF_API_TOKEN` (HF API token for hosted inference)
+- `HF_MODEL_ID` (defaults to `google/medgemma-2b-it`)
 
 ### Kaggle Provider Mode
 
@@ -141,6 +144,16 @@ Expected Kaggle response keys (flexible):
 - `dangerSigns` or `danger_signs`
 - `referralRecommended` or `referral_recommended`
 
+### Hugging Face Provider Mode
+
+```bash
+export AI_PROVIDER=huggingface
+export HF_MODEL_ID=google/medgemma-2b-it
+export HF_API_TOKEN=<hf-token>
+# Optional custom endpoint:
+export HF_INFER_URL=https://api-inference.huggingface.co/models/google/medgemma-2b-it
+```
+
 ## Configuration
 
 ### Development
@@ -151,6 +164,7 @@ Expected Kaggle response keys (flexible):
 - Managed Firestore/GCS/Vertex credentials configured
 - API URL set explicitly for both frontends
 - Kaggle validation scripts completed (see `kaggle/`)
+- Kaggle submission docs are in `docs/kaggle/`
 
 ## Cost Optimization
 
