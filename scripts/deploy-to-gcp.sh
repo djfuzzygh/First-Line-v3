@@ -83,9 +83,22 @@ echo -e "${GREEN}✅ TypeScript built${NC}"
 echo ""
 
 # Step 6: Build Docker image
-echo -e "${BLUE}Step 6: Building Docker image${NC}"
-docker build -t firstline:latest .
-docker tag firstline:latest gcr.io/$GCP_PROJECT_ID/firstline:latest
+echo -e "${BLUE}Step 6: Building Docker image for Cloud Run (amd64/linux)${NC}"
+
+# Check if docker buildx is available (for cross-platform builds)
+if command -v docker &> /dev/null && docker buildx ls &> /dev/null; then
+    echo "Using docker buildx for cross-platform build..."
+    docker buildx build \
+      --platform linux/amd64 \
+      --tag gcr.io/$GCP_PROJECT_ID/firstline:latest \
+      --load \
+      .
+else
+    echo "Using standard docker build (ensure you're building on amd64/linux)..."
+    docker build -t firstline:latest .
+    docker tag firstline:latest gcr.io/$GCP_PROJECT_ID/firstline:latest
+fi
+
 echo -e "${GREEN}✅ Docker image built${NC}"
 echo ""
 
