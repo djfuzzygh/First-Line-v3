@@ -34,21 +34,18 @@ const rollupService = new RollupService({
 
 // Create AI Provider using factory
 const aiProvider = AIProviderFactory.create({
-  provider: (process.env.AI_PROVIDER as 'vertexai' | 'bedrock' | 'kaggle' | 'openai') || 'vertexai',
+  provider: (process.env.AI_PROVIDER as 'vertexai' | 'bedrock' | 'kaggle' | 'openai' | 'huggingface') || 'vertexai',
 });
 
-// Preload protocol
+// Preload protocol — always await the shared promise to avoid race conditions
 let localProtocols: string | undefined;
-let protocolPreloaded = false;
 
 const preloadPromise = configurationService.preloadProtocol().then((protocol) => {
   localProtocols = protocol;
-  protocolPreloaded = true;
   console.log('Local health protocols preloaded successfully');
 }).catch((error) => {
   console.error('Failed to preload protocols, using default:', error);
   localProtocols = undefined;
-  protocolPreloaded = true;
 });
 
 /**
@@ -66,15 +63,18 @@ function getTriageService(): TriageService {
  * Google Cloud Functions (Express-style) entry point
  */
 const expressHandler = async (req: Request, res: Response): Promise<void> => {
-  // Wait for protocol preload
-  if (!protocolPreloaded) {
-    await preloadPromise;
-  }
+  // Always await the shared preload promise (no-op if already resolved)
+  await preloadPromise;
 
-  // Set CORS headers
-  res.set('Access-Control-Allow-Origin', '*');
+  // CORS headers — origin whitelisting handled by server-level middleware
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:5173').split(',').map(o => o.trim());
+  const origin = req.headers.origin as string | undefined;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+  }
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.set('Vary', 'Origin');
 
   if (req.method === 'OPTIONS') {
     res.status(204).send('');
@@ -83,7 +83,7 @@ const expressHandler = async (req: Request, res: Response): Promise<void> => {
 
   try {
     const path = req.path;
-    const encounterId = req.params.id || path.split('/')[2]; // Simple parsing for Cloud Functions
+    const encounterId = asSingle(req.params.id) || path.split('/')[2]; // Simple parsing for Cloud Functions
 
     if (req.method === 'POST' && path.includes('/triage')) {
       await handlePerformTriage(encounterId, req, res);
@@ -97,6 +97,13 @@ const expressHandler = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const handler = asDualHandler(expressHandler);
+
+function asSingle(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) {
+    return value[0] || '';
+  }
+  return value || '';
+}
 
 /**
  * Handle POST /encounters/{id}/triage

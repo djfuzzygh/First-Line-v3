@@ -12,9 +12,13 @@ const envPath = path.resolve(__dirname, '../.env');
 if (fs.existsSync(envPath)) {
     const envFile = fs.readFileSync(envPath, 'utf8');
     envFile.split('\n').forEach(line => {
-        const [key, value] = line.split('=');
-        if (key && value) {
-            process.env[key.trim()] = value.trim();
+        if (!line.trim() || line.trim().startsWith('#')) return;
+        const eqIndex = line.indexOf('=');
+        if (eqIndex === -1) return;
+        const key = line.slice(0, eqIndex).trim();
+        const value = line.slice(eqIndex + 1).trim();
+        if (key) {
+            process.env[key] = value;
         }
     });
 }
@@ -30,8 +34,17 @@ if (!process.env.FIRESTORE_IN_MEMORY && !process.env.K_SERVICE) {
     if (!hasInlineCreds && !hasFileCreds) {
         process.env.FIRESTORE_IN_MEMORY = 'true';
         // Keep local/dev runs responsive when cloud credentials are absent.
-        process.env.AI_PROVIDER = 'kaggle';
+        if (!process.env.AI_PROVIDER) {
+            process.env.AI_PROVIDER = 'kaggle';
+        }
     }
+}
+
+// Validate critical environment variables at startup
+const requiredEnvVars = ['GCP_PROJECT_ID'];
+const missingVars = requiredEnvVars.filter(v => !process.env[v] && !process.env.FIRESTORE_IN_MEMORY);
+if (missingVars.length > 0) {
+    console.warn(`WARNING: Missing environment variables: ${missingVars.join(', ')}. Some features may not work.`);
 }
 
 import express from 'express';
@@ -97,14 +110,22 @@ const asRequestHandler = (fn: any): RequestHandler => {
     };
 };
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json({ limit: '100kb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '100kb' }));
 
-// CORS
+// CORS — restrict to allowed origins (configurable via ALLOWED_ORIGINS env var)
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:5173')
+    .split(',')
+    .map(o => o.trim());
+
 app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
+    const origin = req.headers.origin;
+    if (origin && ALLOWED_ORIGINS.includes(origin)) {
+        res.header('Access-Control-Allow-Origin', origin);
+    }
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.header('Vary', 'Origin');
     if (req.method === 'OPTIONS') {
         res.sendStatus(200);
     } else {

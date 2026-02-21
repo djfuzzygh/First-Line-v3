@@ -65,12 +65,15 @@ export class FirstLineStack extends cdk.Stack {
       ],
     });
 
-    // Grant Bedrock permissions
+    // Grant Bedrock permissions — restricted to specific models
     lambdaRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
-        resources: ['*'], // Will be restricted to specific models in production
+        resources: [
+          `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-3-haiku-*`,
+          `arn:aws:bedrock:${this.region}::foundation-model/anthropic.claude-3-sonnet-*`,
+        ],
       })
     );
 

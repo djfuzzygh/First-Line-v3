@@ -75,7 +75,11 @@ export default function LoginScreen({ navigation, onLogin }: Props) {
   };
 
   const handleDemoLogin = async () => {
-    // Demo mode for testing without backend
+    if (!__DEV__) {
+      Alert.alert('Unavailable', 'Demo mode is only available in development builds.');
+      return;
+    }
+    // Demo mode for testing without backend — development builds only
     await AsyncStorage.setItem('authToken', 'demo-token-12345');
     await AsyncStorage.setItem('userInfo', JSON.stringify({
       id: 'demo-user',

@@ -22,14 +22,23 @@ export class AuthService {
   private async getJwtSecret(): Promise<string> {
     if (this.jwtSecret) return this.jwtSecret;
 
+    // In test/development, allow env-based secret
+    if (process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'development') {
+      const envSecret = process.env.JWT_SECRET;
+      if (envSecret) {
+        this.jwtSecret = envSecret;
+        return this.jwtSecret;
+      }
+    }
+
     try {
       console.log(`Fetching secret ${this.secretName} from Google Secret Manager...`);
       this.jwtSecret = await this.secretsService.getSecret(this.secretName);
       return this.jwtSecret;
     } catch (error) {
-      console.error('Failed to fetch JWT secret:', error);
-      // Fallback for development/testing only
-      return process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+      console.error('CRITICAL: Failed to fetch JWT secret from Secret Manager:', error);
+      // Fail fast — never fall back to a hardcoded secret in production
+      throw new Error('JWT secret unavailable. Cannot proceed without secure authentication.');
     }
   }
 

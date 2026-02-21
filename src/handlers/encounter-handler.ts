@@ -23,7 +23,7 @@ const followupService = new FollowupService({
 const expressHandler = async (req: Request, res: Response): Promise<void> => {
   const method = req.method;
   const path = req.path;
-  const id = req.params.id;
+  const id = asSingle(req.params.id);
   const isCollectionPath = path === '/' || path === '/encounters' || path.endsWith('/encounters');
 
   try {
@@ -48,6 +48,13 @@ const expressHandler = async (req: Request, res: Response): Promise<void> => {
 
 export const handler = asDualHandler(expressHandler);
 
+function asSingle(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) {
+    return value[0] || '';
+  }
+  return value || '';
+}
+
 async function handleCreateEncounter(req: Request, res: Response): Promise<void> {
   const body = req.body || {};
   const encounterId = uuidv4();
@@ -71,6 +78,11 @@ async function handleCreateEncounter(req: Request, res: Response): Promise<void>
       'VALIDATION_ERROR',
       'Missing required fields: age, sex, location, symptoms'
     );
+  }
+
+  const age = Number(demographics.age);
+  if (!Number.isInteger(age) || age < 0 || age > 120) {
+    return sendErrorResponse(res, 400, 'VALIDATION_ERROR', 'Age must be an integer between 0 and 120');
   }
 
   if (!allowedChannels.has(channel)) {

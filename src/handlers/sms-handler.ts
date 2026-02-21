@@ -81,7 +81,7 @@ async function processMessage(state: SMSConversationState, text: string): Promis
   if (state.Step === 'AGE') {
     const age = Number.parseInt(text, 10);
     if (!Number.isInteger(age) || age < 0 || age > 120) {
-      return 'Please enter a valid age (0-120).';
+      return 'Please enter a valid age (0\u2013120).';
     }
     state.Demographics.age = age;
     state.Step = 'SEX';

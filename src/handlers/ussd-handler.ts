@@ -141,8 +141,8 @@ async function processUSSDInput(
 
   if (state.Step === 'AGE') {
     const age = Number.parseInt(text, 10);
-    if (!Number.isInteger(age) || age < 0 || age > 150) {
-      return { type: 'CON', message: 'Invalid age. Enter a valid age (0-150):' };
+    if (!Number.isInteger(age) || age < 0 || age > 120) {
+      return { type: 'CON', message: 'Invalid age. Enter a valid age (0-120):' };
     }
     state.Demographics.age = age;
     state.Step = 'SEX';

@@ -32,6 +32,10 @@ export class VertexAIService implements AIProvider {
       // Get access token from Google Cloud
       const accessToken = await this.getAccessToken();
 
+      // Enforce request timeout using AbortController
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), this.config.timeoutMs || 30000);
+
       const response = await fetch(this.endpoint, {
         method: 'POST',
         headers: {
@@ -51,7 +55,10 @@ export class VertexAIService implements AIProvider {
             topP: 0.95,
           },
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`Vertex AI API error: ${response.statusText}`);

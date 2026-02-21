@@ -18,7 +18,14 @@ export const offlineStorage = {
 
   async getOfflineQueue(): Promise<OfflineEncounter[]> {
     const data = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
-    return data ? JSON.parse(data) : [];
+    if (!data) return [];
+    try {
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      console.warn('Corrupted offline queue data — resetting to empty queue');
+      return [];
+    }
   },
 
   async markAsSynced(encounterId: string): Promise<void> {
