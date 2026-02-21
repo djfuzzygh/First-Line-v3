@@ -30,6 +30,7 @@ import {
   ExpandMore,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { KaggleConnectionStatus } from './KaggleConnectionStatus';
 
 const drawerWidth = 240;
 
@@ -160,6 +161,7 @@ export default function Layout({ children }: Props) {
             Healthcare Triage Platform
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <KaggleConnectionStatus />
             <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>
               {user?.name || user?.email}
             </Typography>

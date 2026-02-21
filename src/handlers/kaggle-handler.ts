@@ -22,12 +22,85 @@ const expressHandler = async (req: Request, res: Response): Promise<void> => {
   const path = req.path;
 
   if (method === 'GET' && path.includes('/kaggle/health')) {
-    res.status(200).json({
-      status: 'ok',
-      mode: process.env.KAGGLE_MODE || 'mock',
-      endpointConfigured: Boolean(process.env.KAGGLE_INFER_URL),
-      timestamp: new Date().toISOString(),
-    });
+    const startTime = Date.now();
+    const kaggleUrl = process.env.KAGGLE_INFER_URL;
+
+    // If no Kaggle URL configured, return disconnected status
+    if (!kaggleUrl) {
+      res.status(200).json({
+        connected: false,
+        latencyMs: 0,
+        kaggleUrl: null,
+        timestamp: new Date().toISOString(),
+        fallbackActive: true,
+        message: 'Kaggle notebook URL not configured. Using rule-based fallback.',
+      });
+      return;
+    }
+
+    // Test actual connectivity to Kaggle endpoint
+    try {
+      const testResponse = (await Promise.race([
+        fetch(resolveKaggleInferUrl(kaggleUrl), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(process.env.KAGGLE_API_KEY && {
+              Authorization: `Bearer ${process.env.KAGGLE_API_KEY}`,
+            }),
+          },
+          body: JSON.stringify({
+            symptoms: 'health_check',
+            age: 0,
+            sex: 'O',
+          }),
+        }),
+        new Promise<any>((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout')), 5000)
+        ),
+      ])) as any;
+
+      const latencyMs = Date.now() - startTime;
+
+      if (testResponse && testResponse.ok) {
+        res.status(200).json({
+          connected: true,
+          latencyMs,
+          kaggleUrl,
+          timestamp: new Date().toISOString(),
+          fallbackActive: false,
+          message: 'Kaggle notebook connected and responding',
+        });
+      } else if (testResponse) {
+        res.status(200).json({
+          connected: false,
+          latencyMs,
+          kaggleUrl,
+          timestamp: new Date().toISOString(),
+          fallbackActive: true,
+          message: `Kaggle returned HTTP ${testResponse.status}. Using rule-based fallback.`,
+        });
+      } else {
+        res.status(200).json({
+          connected: false,
+          latencyMs: Date.now() - startTime,
+          kaggleUrl,
+          timestamp: new Date().toISOString(),
+          fallbackActive: true,
+          message: 'Kaggle unreachable. Using rule-based fallback.',
+        });
+      }
+    } catch (error) {
+      const latencyMs = Date.now() - startTime;
+      res.status(200).json({
+        connected: false,
+        latencyMs,
+        kaggleUrl,
+        timestamp: new Date().toISOString(),
+        fallbackActive: true,
+        message: `Kaggle connection failed: ${(error as Error).message}. Using rule-based fallback.`,
+      });
+    }
     return;
   }
 
