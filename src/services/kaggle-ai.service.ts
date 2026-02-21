@@ -170,6 +170,29 @@ export class KaggleAIService implements AIProvider {
   }
 
   async generateReferralSummary(encounter: Encounter, triageResult: AIResponse): Promise<string> {
+    // Use MedGemma for referral summary generation when endpoint is available
+    if (this.endpoint) {
+      try {
+        const raw = await this.callKaggle({
+          task: 'generate_referral',
+          symptoms: encounter.Symptoms,
+          age: encounter.Demographics.age,
+          sex: encounter.Demographics.sex,
+          location: encounter.Demographics.location,
+          riskTier: triageResult.riskTier,
+          dangerSigns: triageResult.dangerSigns,
+        });
+        const parsed = raw as Record<string, unknown>;
+        const summary = parsed.summary || parsed.referralSummary || parsed.referral_summary;
+        if (typeof summary === 'string' && summary.length > 20) {
+          return summary;
+        }
+      } catch (error) {
+        console.warn('MedGemma referral summary failed, using template fallback:', error);
+      }
+    }
+
+    // Template fallback only when MedGemma is unavailable
     return [
       `Patient: ${encounter.Demographics.age}yo ${encounter.Demographics.sex}`,
       `Location: ${encounter.Demographics.location}`,

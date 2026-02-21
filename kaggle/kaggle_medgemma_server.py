@@ -39,7 +39,9 @@ class InferRequest(BaseModel):
     sex: Optional[str] = None
     location: Optional[str] = None
     followupResponses: List[str] = Field(default_factory=list)
-    task: Optional[str] = None  # "triage" (default), "normalize_intake", "generate_followup"
+    task: Optional[str] = None  # "triage", "normalize_intake", "generate_followup", "generate_referral"
+    riskTier: Optional[str] = None
+    dangerSigns: List[str] = Field(default_factory=list)
 
 
 class InferResponse(BaseModel):
@@ -228,14 +230,32 @@ Generate questions to assess severity and urgency. Return ONLY a JSON object:
 }}""".strip()
 
 
+def _build_referral_prompt(payload: InferRequest) -> str:
+    return f"""You are a clinical referral assistant. Write a concise professional referral summary for the receiving healthcare provider.
+
+Patient: {payload.age}yo {payload.sex}
+Location: {payload.location}
+Presenting Complaint: {payload.symptoms}
+
+Write 2-3 paragraphs covering: clinical presentation, assessment rationale, and recommended actions. Return ONLY a JSON object:
+{{
+  "summary": "Your referral summary text here..."
+}}""".strip()
+
+
 @app.post("/infer")
 def infer(payload: InferRequest):
     task = payload.task or "triage"
 
-    # Handle non-triage tasks (normalize, followup) — return flexible JSON
-    if task in ("normalize_intake", "generate_followup") and MODEL_STATE["loaded"] and MODEL and TOKENIZER:
+    # Handle non-triage tasks (normalize, followup, referral) — return flexible JSON
+    if task in ("normalize_intake", "generate_followup", "generate_referral") and MODEL_STATE["loaded"] and MODEL and TOKENIZER:
         try:
-            prompt = _build_normalize_prompt(payload) if task == "normalize_intake" else _build_followup_prompt(payload)
+            prompt_map = {
+                "normalize_intake": _build_normalize_prompt,
+                "generate_followup": _build_followup_prompt,
+                "generate_referral": _build_referral_prompt,
+            }
+            prompt = prompt_map[task](payload)
             text = _run_medgemma(prompt, max_tokens=250)
             json_text = _clean_json_block(text)
             data = json.loads(json_text)
