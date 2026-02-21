@@ -64,13 +64,14 @@ def main():
     if not encounter_id:
         raise RuntimeError("create_encounter failed: no encounterId")
 
-    status, _ = call("POST", f"/encounters/{encounter_id}/triage", {}, token=token)
-    if status not in (200, 500):
-        raise RuntimeError(f"triage unexpected status: {status}")
+    status, triage = call("POST", f"/encounters/{encounter_id}/triage", {}, token=token)
+    assert_ok("triage", status, 200)
+    risk_tier = triage.get("riskTier")
+    if risk_tier not in ("RED", "YELLOW", "GREEN"):
+        raise RuntimeError(f"triage returned invalid riskTier: {risk_tier}")
 
-    status, _ = call("GET", "/dashboard/stats", token=token)
-    if status not in (200, 500):
-        raise RuntimeError(f"dashboard unexpected status: {status}")
+    status, stats = call("GET", "/dashboard/stats", token=token)
+    assert_ok("dashboard_stats", status, 200)
 
     print("SMOKE_TEST_OK")
 

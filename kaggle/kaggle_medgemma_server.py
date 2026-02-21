@@ -39,6 +39,7 @@ class InferRequest(BaseModel):
     sex: Optional[str] = None
     location: Optional[str] = None
     followupResponses: List[str] = Field(default_factory=list)
+    task: Optional[str] = None  # "triage" (default), "normalize_intake", "generate_followup"
 
 
 class InferResponse(BaseModel):
@@ -182,28 +183,74 @@ def health():
     }
 
 
-@app.post("/infer", response_model=InferResponse)
+def _run_medgemma(prompt: str, max_tokens: int = 350) -> str:
+    """Run MedGemma inference and return decoded text."""
+    inputs = TOKENIZER(prompt, return_tensors="pt")
+    if torch.cuda.is_available():
+        inputs = {k: v.to("cuda") for k, v in inputs.items()}
+    with torch.no_grad():
+        output = MODEL.generate(
+            **inputs,
+            max_new_tokens=max_tokens,
+            temperature=0.2,
+            top_p=0.9,
+            do_sample=True,
+            pad_token_id=TOKENIZER.eos_token_id,
+        )
+    return TOKENIZER.decode(output[0], skip_special_tokens=True)
+
+
+def _build_normalize_prompt(payload: InferRequest) -> str:
+    return f"""You are a medical intake assistant. Normalize and structure the following patient symptoms.
+
+Patient: {payload.age}yo {payload.sex}
+Raw Symptoms: {payload.symptoms}
+
+Return ONLY valid JSON:
+{{
+  "primaryComplaint": "main medical issue",
+  "duration": "how long occurring",
+  "severity": "Mild|Moderate|Severe",
+  "extractedSymptoms": ["symptom1", "symptom2"]
+}}""".strip()
+
+
+def _build_followup_prompt(payload: InferRequest) -> str:
+    return f"""You are a medical triage assistant. Generate 3-5 follow-up questions for this patient.
+
+Age: {payload.age}
+Sex: {payload.sex}
+Chief Complaint: {payload.symptoms}
+
+Generate questions to assess severity and urgency. Return ONLY a JSON object:
+{{
+  "questions": ["Question 1?", "Question 2?", "Question 3?"]
+}}""".strip()
+
+
+@app.post("/infer")
 def infer(payload: InferRequest):
+    task = payload.task or "triage"
+
+    # Handle non-triage tasks (normalize, followup) — return flexible JSON
+    if task in ("normalize_intake", "generate_followup") and MODEL_STATE["loaded"] and MODEL and TOKENIZER:
+        try:
+            prompt = _build_normalize_prompt(payload) if task == "normalize_intake" else _build_followup_prompt(payload)
+            text = _run_medgemma(prompt, max_tokens=250)
+            json_text = _clean_json_block(text)
+            data = json.loads(json_text)
+            data["model"] = MODEL_ID
+            data["source"] = "kaggle-medgemma"
+            return data
+        except Exception:
+            pass  # Fall through to triage/heuristic path
+
     if not MODEL_STATE["loaded"] or MODEL is None or TOKENIZER is None:
         return _heuristic_fallback(payload.symptoms)
 
     try:
         prompt = _build_prompt(payload)
-        inputs = TOKENIZER(prompt, return_tensors="pt")
-        if torch.cuda.is_available():
-            inputs = {k: v.to("cuda") for k, v in inputs.items()}
-
-        with torch.no_grad():
-            output = MODEL.generate(
-                **inputs,
-                max_new_tokens=350,
-                temperature=0.2,
-                top_p=0.9,
-                do_sample=True,
-                pad_token_id=TOKENIZER.eos_token_id,
-            )
-
-        text = TOKENIZER.decode(output[0], skip_special_tokens=True)
+        text = _run_medgemma(prompt, max_tokens=350)
         json_text = _clean_json_block(text)
         data = json.loads(json_text)
 

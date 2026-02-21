@@ -77,13 +77,39 @@ export class KaggleAIService implements AIProvider {
 
   async normalizeIntake(
     symptoms: string,
-    _demographics: { age: number; sex: string }
+    demographics: { age: number; sex: string }
   ): Promise<{
     primaryComplaint: string;
     duration: string;
     severity: string;
     extractedSymptoms: string[];
   }> {
+    // Use MedGemma for intake normalization when endpoint is available
+    if (this.endpoint) {
+      try {
+        const raw = await this.callKaggle({
+          task: 'normalize_intake',
+          symptoms,
+          age: demographics.age,
+          sex: demographics.sex,
+        });
+        const parsed = raw as Record<string, unknown>;
+        if (parsed.primaryComplaint || parsed.primary_complaint) {
+          return {
+            primaryComplaint: String(parsed.primaryComplaint || parsed.primary_complaint || 'General complaint'),
+            duration: String(parsed.duration || 'Unknown'),
+            severity: String(parsed.severity || 'Moderate'),
+            extractedSymptoms: Array.isArray(parsed.extractedSymptoms || parsed.extracted_symptoms)
+              ? (parsed.extractedSymptoms || parsed.extracted_symptoms) as string[]
+              : [],
+          };
+        }
+      } catch (error) {
+        console.warn('MedGemma intake normalization failed, using heuristic fallback:', error);
+      }
+    }
+
+    // Heuristic fallback only when MedGemma is unavailable
     const normalized = symptoms.trim();
     const lower = normalized.toLowerCase();
     const severity =
@@ -103,8 +129,28 @@ export class KaggleAIService implements AIProvider {
 
   async generateFollowupQuestions(
     symptoms: string,
-    _demographics: { age: number; sex: string }
+    demographics: { age: number; sex: string }
   ): Promise<string[]> {
+    // Use MedGemma for follow-up question generation when endpoint is available
+    if (this.endpoint) {
+      try {
+        const raw = await this.callKaggle({
+          task: 'generate_followup',
+          symptoms,
+          age: demographics.age,
+          sex: demographics.sex,
+        });
+        const parsed = raw as Record<string, unknown>;
+        const questions = parsed.questions || parsed.followupQuestions || parsed.followup_questions;
+        if (Array.isArray(questions) && questions.length >= 2) {
+          return (questions as string[]).slice(0, 5);
+        }
+      } catch (error) {
+        console.warn('MedGemma followup generation failed, using heuristic fallback:', error);
+      }
+    }
+
+    // Heuristic fallback only when MedGemma is unavailable
     const lower = symptoms.toLowerCase();
     const base = [
       'How long have these symptoms been present?',
