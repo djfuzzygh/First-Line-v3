@@ -44,7 +44,7 @@ export async function handler(event: APIGatewayProxyEvent): Promise<APIGatewayPr
       id,
       name: `Edge Device ${id}`,
       status: 'online',
-      modelVersion: 'medgemma-2b-q4',
+      modelVersion: 'medgemma-4b',
       lastSeen: new Date().toISOString(),
     });
   }

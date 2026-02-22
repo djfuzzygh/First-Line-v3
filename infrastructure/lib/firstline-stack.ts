@@ -124,7 +124,7 @@ export class FirstLineStack extends cdk.Stack {
       BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0',
 
       // Google Vertex AI (MedGemma)
-      VERTEXAI_MODEL_ID: process.env.VERTEXAI_MODEL_ID || 'medgemma-2b',
+      VERTEXAI_MODEL_ID: process.env.VERTEXAI_MODEL_ID || 'medgemma-4b',
       GCP_PROJECT_ID: process.env.GCP_PROJECT_ID || '',
       GCP_REGION: process.env.GCP_REGION || 'us-central1',
 

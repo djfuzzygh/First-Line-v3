@@ -48,7 +48,7 @@ const expressHandler = async (req: Request, res: Response): Promise<void> => {
       vertexai: {
         projectId: process.env.GCP_PROJECT_ID || '',
         region: process.env.GCP_REGION || 'us-central1',
-        modelId: process.env.VERTEXAI_MODEL_ID || 'medgemma-2b',
+        modelId: process.env.VERTEXAI_MODEL_ID || 'medgemma-4b',
         accessToken: '',
         maxTokens: 500,
         temperature: 0.3,
@@ -63,7 +63,7 @@ const expressHandler = async (req: Request, res: Response): Promise<void> => {
       huggingface: {
         endpoint: process.env.HF_INFER_URL || '',
         apiKey: '',
-        modelId: process.env.HF_MODEL_ID || 'google/medgemma-2b-it',
+        modelId: process.env.HF_MODEL_ID || 'google/medgemma-4b-it',
         maxTokens: 500,
         temperature: 0.2,
       },

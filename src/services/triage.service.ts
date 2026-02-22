@@ -384,7 +384,7 @@ export class TriageService {
         PK: this.firestoreService.generateEncounterPK(encounterId),
         SK: this.firestoreService.generateDecisionSK(),
         Type: 'Decision',
-        AiModel: 'medgemma-2b',
+        AiModel: 'medgemma-4b',
         PromptTokens: 0,
         CompletionTokens: 0,
         RawResponse: JSON.stringify(aiResponse),
