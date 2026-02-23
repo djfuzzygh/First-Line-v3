@@ -5,7 +5,7 @@
  */
 
 import { AIProvider, AIProviderConfig } from './ai-provider.interface';
-import { AIResponse, Encounter, TriageLevel, UncertaintyLevel } from '../models';
+import { AIResponse, Encounter, TriageLevel, UncertaintyLevel, LabResults } from '../models';
 
 export class VertexAIService implements AIProvider {
   private config: AIProviderConfig;
@@ -75,11 +75,12 @@ export class VertexAIService implements AIProvider {
   async generateTriageAssessment(
     encounter: Encounter,
     followupResponses: string[],
-    protocols: string
+    protocols: string,
+    labResults?: LabResults
   ): Promise<AIResponse> {
-    const prompt = this.buildTriagePrompt(encounter, followupResponses, protocols);
+    const prompt = this.buildTriagePrompt(encounter, followupResponses, protocols, labResults);
     const response = await this.invokeModel(prompt);
-    return this.parseTriageResponse(response);
+    return this.parseTriageResponse(response, labResults);
   }
 
   async normalizeIntake(
@@ -151,8 +152,19 @@ Create a professional summary for the receiving clinician (2-3 paragraphs).`;
   private buildTriagePrompt(
     encounter: Encounter,
     followupResponses: string[],
-    protocols: string
+    protocols: string,
+    labResults?: LabResults
   ): string {
+    const labSection = labResults ? `
+- Lab Results:
+  * WBC: ${labResults.wbc} K/μL
+  * Hemoglobin: ${labResults.hemoglobin} g/dL
+  * Glucose: ${labResults.glucose} mg/dL
+  * Temperature: ${labResults.temperature}°C
+  * Blood Pressure: ${labResults.bloodPressure}
+  * CRP: ${labResults.crp}
+  * Lactate: ${labResults.lactate}` : '';
+
     return `You are a medical triage assistant using WHO clinical guidelines. Assess this patient:
 
 Patient Information:
@@ -160,7 +172,7 @@ Patient Information:
 - Sex: ${encounter.Demographics.sex}
 - Location: ${encounter.Demographics.location}
 - Chief Complaint: ${encounter.Symptoms}
-- Follow-up Responses: ${followupResponses.join('; ')}
+- Follow-up Responses: ${followupResponses.join('; ')}${labSection}
 - Local Protocols: ${protocols}
 
 Assign risk tier (RED/YELLOW/GREEN), identify danger signs, and provide recommendations.
@@ -178,7 +190,7 @@ Respond ONLY with valid JSON:
 }`;
   }
 
-  private parseTriageResponse(response: string): AIResponse {
+  private parseTriageResponse(response: string, labResults?: LabResults): AIResponse {
     try {
       // Extract JSON from response
       const jsonMatch = response.match(/\{[\s\S]*\}/);
@@ -188,7 +200,7 @@ Respond ONLY with valid JSON:
 
       const parsed = JSON.parse(jsonMatch[0]);
 
-      return {
+      const result: AIResponse = {
         riskTier: parsed.riskTier as TriageLevel,
         dangerSigns: parsed.dangerSigns || [],
         uncertainty: parsed.uncertainty as UncertaintyLevel,
@@ -198,6 +210,13 @@ Respond ONLY with valid JSON:
         disclaimer: parsed.disclaimer || 'This is not a diagnosis. Seek professional medical care.',
         reasoning: parsed.reasoning || '',
       };
+
+      // Add lab results if provided
+      if (labResults) {
+        result.labResults = labResults;
+      }
+
+      return result;
     } catch (error) {
       console.error('Error parsing triage response:', error);
       throw new Error('Failed to parse AI response');

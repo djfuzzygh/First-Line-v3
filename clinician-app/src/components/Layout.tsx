@@ -16,6 +16,7 @@ import {
   LocalHospital,
   History,
   Add,
+  Tune as TuneIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -64,6 +65,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             sx={{ mr: 2 }}
           >
             History
+          </Button>
+
+          <Button
+            color="inherit"
+            startIcon={<TuneIcon />}
+            onClick={() => navigate('/simulator')}
+            sx={{ mr: 2 }}
+          >
+            Simulator
           </Button>
 
           <IconButton

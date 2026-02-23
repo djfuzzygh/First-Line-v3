@@ -14,7 +14,7 @@ import {
 } from '@aws-sdk/client-bedrock-runtime';
 import { AIProvider } from './ai-provider.interface';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-import { AIResponse, Encounter, TriageLevel, UncertaintyLevel } from '../models';
+import { AIResponse, Encounter, TriageLevel, UncertaintyLevel, LabResults } from '../models';
 
 /**
  * Configuration for Bedrock service
@@ -197,7 +197,8 @@ export class BedrockService implements AIProvider {
   private async buildPrompt(
     encounter: Encounter,
     followupResponses: string[] = [],
-    protocols: string = 'Standard WHO guidelines'
+    protocols: string = 'Standard WHO guidelines',
+    labResults?: LabResults
   ): Promise<string> {
     // Wait for template to be loaded (cached after first call)
     const template = await this.promptTemplate;
@@ -207,6 +208,10 @@ export class BedrockService implements AIProvider {
         .filter(([_, value]) => value !== undefined)
         .map(([key, value]) => `${key}: ${value}`)
         .join(', ')
+      : 'Not provided';
+
+    const labStr = labResults
+      ? `Lab Results: WBC=${labResults.wbc}, Hemoglobin=${labResults.hemoglobin}, Glucose=${labResults.glucose}, Temperature=${labResults.temperature}, BP=${labResults.bloodPressure}, CRP=${labResults.crp}, Lactate=${labResults.lactate}`
       : 'Not provided';
 
     const followupStr = followupResponses.length > 0
@@ -219,7 +224,8 @@ export class BedrockService implements AIProvider {
       .replace('{symptoms}', encounter.Symptoms)
       .replace('{followup}', followupStr)
       .replace('{vitals}', vitalsStr)
-      .replace('{protocols}', protocols);
+      .replace('{protocols}', protocols)
+      .replace('{labResults}', labStr);
   }
 
   /**
@@ -260,7 +266,7 @@ export class BedrockService implements AIProvider {
    * @returns Parsed and validated AIResponse
    * @throws Error if JSON is invalid or missing required fields
    */
-  private parseResponse(rawResponse: string): AIResponse {
+  private parseResponse(rawResponse: string, labResults?: LabResults): AIResponse {
     let parsed: any;
 
     try {
@@ -315,7 +321,14 @@ export class BedrockService implements AIProvider {
       throw new Error('referralRecommended must be a boolean');
     }
 
-    return parsed as AIResponse;
+    const response: AIResponse = parsed as AIResponse;
+
+    // Add lab results if provided
+    if (labResults) {
+      response.labResults = labResults;
+    }
+
+    return response;
   }
 
   /**
@@ -400,14 +413,15 @@ export class BedrockService implements AIProvider {
   async generateTriageAssessment(
     encounter: Encounter,
     followupResponses: string[],
-    protocols: string
+    protocols: string,
+    labResults?: LabResults
   ): Promise<AIResponse> {
     // Build and truncate prompt to token limit (uses cached template)
-    let prompt = await this.buildPrompt(encounter, followupResponses, protocols);
+    let prompt = await this.buildPrompt(encounter, followupResponses, protocols, labResults);
     prompt = this.truncateToTokenLimit(prompt, this.config.maxInputTokens);
 
     const response = await this.invokeModel(prompt);
-    return this.parseResponse(response);
+    return this.parseResponse(response, labResults);
   }
 
   /**

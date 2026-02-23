@@ -28,6 +28,28 @@ export interface VitalSigns {
 }
 
 /**
+ * Lab test results
+ */
+export interface LabResults {
+  wbc?: number;              // White Blood Cell count (K/μL)
+  hemoglobin?: number;       // g/dL
+  glucose?: number;          // mg/dL
+  temperature?: number;      // °C
+  bloodPressure?: string;    // "120/80"
+  crp?: number;              // C-Reactive Protein
+  lactate?: number;          // mmol/L
+}
+
+/**
+ * Suggested diagnosis with confidence and reasoning
+ */
+export interface DiagnosisSuggestion {
+  condition: string;
+  confidence: number;        // 0-1 scale
+  reasoning: string;
+}
+
+/**
  * AI Engine structured response format
  */
 export interface AIResponse {
@@ -39,6 +61,9 @@ export interface AIResponse {
   referralRecommended: boolean;
   disclaimer: string;
   reasoning: string;
+  diagnosisSuggestions?: DiagnosisSuggestion[];
+  followupQuestions?: string[];
+  labResults?: LabResults;
 }
 
 /**

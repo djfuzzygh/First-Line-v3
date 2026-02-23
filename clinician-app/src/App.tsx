@@ -9,6 +9,7 @@ import Home from './pages/Home';
 import NewEncounter from './pages/NewEncounter';
 import TriageSession from './pages/TriageSession';
 import EncounterHistory from './pages/EncounterHistory';
+import Simulator from './pages/Simulator';
 
 const theme = createTheme({
   palette: {
@@ -47,6 +48,7 @@ export default function App() {
                     <Route path="/new-encounter" element={<NewEncounter />} />
                     <Route path="/triage/:encounterId" element={<TriageSession />} />
                     <Route path="/history" element={<EncounterHistory />} />
+                    <Route path="/simulator" element={<Simulator />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Layout>

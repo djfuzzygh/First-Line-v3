@@ -4,7 +4,7 @@
  * Abstraction layer for different AI providers (AWS Bedrock, Google Vertex AI, etc.)
  */
 
-import { AIResponse, Encounter } from '../models';
+import { AIResponse, Encounter, LabResults } from '../models';
 
 export interface AIProviderConfig {
   provider: 'bedrock' | 'vertexai' | 'openai' | 'kaggle' | 'huggingface';
@@ -31,7 +31,8 @@ export interface AIProvider {
   generateTriageAssessment(
     encounter: Encounter,
     followupResponses: string[],
-    protocols: string
+    protocols: string,
+    labResults?: LabResults
   ): Promise<AIResponse>;
 
   /**

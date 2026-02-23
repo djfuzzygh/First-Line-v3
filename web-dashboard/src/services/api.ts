@@ -201,12 +201,20 @@ export const kaggleApi = {
     sex?: string;
     location?: string;
     followupResponses?: string[];
+    labResults?: {
+      wbc?: number;
+      hemoglobin?: number;
+      temperature?: number;
+      crp?: number;
+      bloodPressure?: string;
+      lactate?: number;
+    };
   }) {
     const response = await axios.post(getKaggleInferUrl(), payload, {
       headers: {
         'Content-Type': 'application/json',
       },
-      timeout: 30000,
+      timeout: 60000,
     });
     return response.data;
   },

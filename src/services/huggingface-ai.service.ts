@@ -1,5 +1,5 @@
 import { AIProvider, AIProviderConfig } from './ai-provider.interface';
-import { AIResponse, Encounter } from '../models';
+import { AIResponse, Encounter, LabResults, DiagnosisSuggestion } from '../models';
 
 type HuggingFaceInferenceResponse = {
   riskTier?: string;
@@ -8,6 +8,7 @@ type HuggingFaceInferenceResponse = {
   referral_recommended?: boolean;
   recommendedNextSteps?: string[];
   recommended_next_steps?: string[];
+  diagnosisSuggestions?: any[];
   watchOuts?: string[];
   watch_outs?: string[];
   dangerSigns?: string[];
@@ -24,10 +25,11 @@ export class HuggingFaceAIService implements AIProvider {
 
   constructor(config: Partial<AIProviderConfig>) {
     const modelId = config.modelId || process.env.HF_MODEL_ID || 'google/medgemma-4b-it';
+    // Use the new router.huggingface.co endpoint
     const endpoint =
       config.endpoint ||
       process.env.HF_INFER_URL ||
-      `https://api-inference.huggingface.co/models/${modelId}`;
+      `https://router.huggingface.co/models/${modelId}`;
 
     this.config = {
       provider: 'huggingface',
@@ -37,7 +39,7 @@ export class HuggingFaceAIService implements AIProvider {
       maxInputTokens: config.maxInputTokens || 2000,
       maxOutputTokens: config.maxOutputTokens || 500,
       temperature: config.temperature || 0.2,
-      timeoutMs: config.timeoutMs || 30000,
+      timeoutMs: config.timeoutMs || 60000,
     };
 
     this.endpoint = this.config.endpoint || '';
@@ -51,22 +53,31 @@ export class HuggingFaceAIService implements AIProvider {
       });
     }
 
-    const response = await this.callHuggingFace({
-      inputs: prompt,
-      symptoms: prompt.slice(0, 4000),
-      options: { wait_for_model: true },
-    });
+    try {
+      const response = await this.callHuggingFace({
+        inputs: prompt,
+        symptoms: prompt.slice(0, 4000),
+        options: { wait_for_model: true },
+      });
 
-    if (response.generated_text) {
-      return response.generated_text;
+      if (response.generated_text) {
+        return response.generated_text;
+      }
+      return JSON.stringify(response);
+    } catch (error) {
+      console.warn('HuggingFace API call failed, using local fallback:', error);
+      return JSON.stringify({
+        riskTier: 'YELLOW',
+        reasoning: 'HuggingFace API unavailable; using local heuristic fallback.',
+      });
     }
-    return JSON.stringify(response);
   }
 
   async generateTriageAssessment(
     encounter: Encounter,
     followupResponses: string[],
-    protocols: string
+    protocols: string,
+    labResults?: LabResults
   ): Promise<AIResponse> {
     const symptoms = [
       encounter.Symptoms,
@@ -76,13 +87,19 @@ export class HuggingFaceAIService implements AIProvider {
       .filter(Boolean)
       .join(' | ');
 
+    const labSection = labResults ? `
+Lab Results: WBC=${labResults.wbc}, Hemoglobin=${labResults.hemoglobin}, Glucose=${labResults.glucose}, Temperature=${labResults.temperature}, BP=${labResults.bloodPressure}, CRP=${labResults.crp}, Lactate=${labResults.lactate}` : '';
+
+    const enhancedSymptoms = symptoms + labSection;
+
     const payload = {
-      symptoms,
+      symptoms: enhancedSymptoms,
       age: encounter.Demographics.age,
       sex: encounter.Demographics.sex,
       location: encounter.Demographics.location,
       followupResponses,
-      inputs: this.buildTriagePrompt(symptoms, encounter.Demographics.age, encounter.Demographics.sex),
+      labResults,
+      inputs: this.buildTriagePrompt(enhancedSymptoms, encounter.Demographics.age, encounter.Demographics.sex),
       parameters: {
         temperature: this.config.temperature,
         max_new_tokens: this.config.maxOutputTokens,
@@ -90,8 +107,14 @@ export class HuggingFaceAIService implements AIProvider {
       options: { wait_for_model: true },
     };
 
-    const raw = this.endpoint ? await this.callHuggingFace(payload) : this.localFallback(symptoms);
-    return this.normalizeTriage(raw, symptoms);
+    let raw: HuggingFaceInferenceResponse;
+    try {
+      raw = this.endpoint ? await this.callHuggingFace(payload) : this.localFallback(enhancedSymptoms);
+    } catch (error) {
+      console.warn('HuggingFace API call failed, using local fallback:', error);
+      raw = this.localFallback(enhancedSymptoms);
+    }
+    return this.normalizeTriage(raw, enhancedSymptoms);
   }
 
   async normalizeIntake(
@@ -142,14 +165,26 @@ export class HuggingFaceAIService implements AIProvider {
     return base.slice(0, 5);
   }
 
-  async generateReferralSummary(encounter: Encounter, triageResult: AIResponse): Promise<string> {
-    return [
-      `Patient: ${encounter.Demographics.age}yo ${encounter.Demographics.sex}`,
+  async generateReferralSummary(
+    encounter: Encounter,
+    triageResult: AIResponse
+  ): Promise<string> {
+    const summary = [
+      `Patient: Age ${encounter.Demographics.age}, ${encounter.Demographics.sex}`,
       `Location: ${encounter.Demographics.location}`,
-      `Symptoms: ${encounter.Symptoms}`,
-      `Risk Tier: ${triageResult.riskTier}`,
-      `Reasoning: ${triageResult.reasoning}`,
-    ].join('\n');
+      `Chief Complaint: ${encounter.Symptoms}`,
+      `Risk Assessment: ${triageResult.riskTier}`,
+    ];
+
+    if (triageResult.dangerSigns && triageResult.dangerSigns.length > 0) {
+      summary.push(`Danger Signs: ${triageResult.dangerSigns.join(', ')}`);
+    }
+
+    if (triageResult.recommendedNextSteps && triageResult.recommendedNextSteps.length > 0) {
+      summary.push(`Recommended Next Steps: ${triageResult.recommendedNextSteps.join(', ')}`);
+    }
+
+    return summary.join('\n');
   }
 
   private async callHuggingFace(payload: Record<string, unknown>): Promise<HuggingFaceInferenceResponse> {
@@ -196,74 +231,134 @@ export class HuggingFaceAIService implements AIProvider {
       return {
         riskTier: 'RED',
         referralRecommended: true,
-        recommendedNextSteps: ['Seek emergency care immediately'],
-        watchOuts: ['Worsening breathing', 'Loss of consciousness'],
-        dangerSigns: ['critical symptom pattern'],
-        uncertainty: 'LOW',
-        disclaimer: 'Demo triage fallback; not a diagnosis.',
-        reasoning: 'Critical keywords detected in symptoms.',
+        recommendedNextSteps: ['Seek emergency care immediately', 'Call emergency services'],
+        dangerSigns: ['Severe symptoms detected'],
+        disclaimer: 'Heuristic assessment - not a medical diagnosis',
+        reasoning: 'Red flag symptoms detected using local heuristic (HuggingFace API unavailable)',
       };
     }
+
     if (yellow) {
       return {
         riskTier: 'YELLOW',
         referralRecommended: true,
-        recommendedNextSteps: ['Visit a clinic within 24 hours', 'Monitor symptoms'],
-        watchOuts: ['New danger signs', 'Persistent fever'],
-        dangerSigns: [],
-        uncertainty: 'MEDIUM',
-        disclaimer: 'Demo triage fallback; not a diagnosis.',
-        reasoning: 'Moderate-risk keywords detected in symptoms.',
+        recommendedNextSteps: ['Visit a healthcare facility within 24 hours', 'Monitor symptoms closely'],
+        watchOuts: ['Watch for worsening symptoms'],
+        disclaimer: 'Heuristic assessment - not a medical diagnosis',
+        reasoning: 'Moderate symptoms detected using local heuristic (HuggingFace API unavailable)',
       };
     }
+
     return {
       riskTier: 'GREEN',
       referralRecommended: false,
-      recommendedNextSteps: ['Home care and monitor symptoms'],
-      watchOuts: ['If symptoms worsen, seek care'],
-      dangerSigns: [],
-      uncertainty: 'MEDIUM',
-      disclaimer: 'Demo triage fallback; not a diagnosis.',
-      reasoning: 'No high-risk keywords detected in symptoms.',
+      recommendedNextSteps: ['Monitor symptoms at home', 'Seek care if symptoms worsen'],
+      disclaimer: 'Heuristic assessment - not a medical diagnosis',
+      reasoning: 'Low-risk symptoms detected using local heuristic (HuggingFace API unavailable)',
     };
   }
 
-  private normalizeTriage(raw: HuggingFaceInferenceResponse, symptoms: string): AIResponse {
-    const generatedText = raw.generated_text || '';
-    if (generatedText && !raw.riskTier && !raw.risk_tier) {
-      const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[0]) as HuggingFaceInferenceResponse;
-          raw = { ...raw, ...parsed };
-        } catch {
-          // Continue with non-JSON fallback below.
-        }
-      }
-    }
+  private normalizeTriage(
+    raw: HuggingFaceInferenceResponse,
+    symptoms: string
+  ): AIResponse {
+    // Normalize field names (snake_case vs camelCase)
+    const riskTier = (raw.riskTier || raw.risk_tier || 'YELLOW') as 'RED' | 'YELLOW' | 'GREEN';
+    const referralRecommended = raw.referralRecommended || raw.referral_recommended || false;
+    const nextSteps = raw.recommendedNextSteps || raw.recommended_next_steps || [];
+    const watchOuts = raw.watchOuts || raw.watch_outs || [];
+    const dangerSigns = raw.dangerSigns || raw.danger_signs || [];
 
-    const risk = String(raw.riskTier || raw.risk_tier || 'YELLOW').toUpperCase();
-    const normalizedRisk = risk === 'RED' || risk === 'GREEN' ? risk : 'YELLOW';
-    const uncertainty = String(raw.uncertainty || 'MEDIUM').toUpperCase();
-    const normalizedUncertainty =
-      uncertainty === 'LOW' || uncertainty === 'HIGH' ? uncertainty : 'MEDIUM';
+    // Generate follow-up questions based on risk tier
+    const followupQuestions = this.generateFollowupBasedOnRisk(riskTier, symptoms);
 
     return {
-      riskTier: normalizedRisk,
-      dangerSigns: raw.dangerSigns || raw.danger_signs || [],
-      uncertainty: normalizedUncertainty as AIResponse['uncertainty'],
-      recommendedNextSteps: raw.recommendedNextSteps || raw.recommended_next_steps || ['Seek medical evaluation'],
-      watchOuts: raw.watchOuts || raw.watch_outs || ['Symptoms getting worse'],
-      referralRecommended: Boolean(raw.referralRecommended ?? raw.referral_recommended ?? normalizedRisk !== 'GREEN'),
-      disclaimer: raw.disclaimer || 'This is not a diagnosis. Seek professional medical care.',
-      reasoning:
-        raw.reasoning ||
-        `Hugging Face inference route used for symptoms: ${symptoms.slice(0, 120)}`,
+      riskTier,
+      referralRecommended,
+      recommendedNextSteps: nextSteps,
+      watchOuts,
+      dangerSigns,
+      followupQuestions,
+      uncertainty: 'MEDIUM',
+      disclaimer: raw.disclaimer || 'Assessment generated by AI - consult medical professional for diagnosis',
+      reasoning: raw.reasoning || 'Assessment based on reported symptoms and lab results',
+      diagnosisSuggestions: this.generateDiagnosisSuggestions(symptoms),
     };
+  }
+
+  private generateFollowupBasedOnRisk(riskTier: string, symptoms: string): string[] {
+    const lower = symptoms.toLowerCase();
+    const followups: string[] = [];
+
+    if (riskTier === 'RED') {
+      followups.push('Have you sought emergency care?');
+      followups.push('Are symptoms worsening?');
+    } else if (riskTier === 'YELLOW') {
+      followups.push('How long have these symptoms been present?');
+      followups.push('Are symptoms improving or worsening?');
+      followups.push('Have you taken any medication?');
+    } else {
+      followups.push('Are symptoms resolving?');
+      followups.push('Do you need any support?');
+    }
+
+    if (lower.includes('fever')) {
+      followups.push('Have you measured your temperature?');
+    }
+    if (lower.includes('cough') || lower.includes('breath')) {
+      followups.push('Are you coughing up anything?');
+    }
+
+    return followups.slice(0, 4);
+  }
+
+  private generateDiagnosisSuggestions(symptoms: string): DiagnosisSuggestion[] {
+    const lower = symptoms.toLowerCase();
+    const suggestions: DiagnosisSuggestion[] = [];
+
+    // Simple heuristic diagnosis suggestions based on symptoms
+    if (lower.includes('fever') && lower.includes('cough')) {
+      suggestions.push({ condition: 'Respiratory Infection', confidence: 0.7, reasoning: 'Fever and cough are typical of respiratory infections' });
+      suggestions.push({ condition: 'Pneumonia', confidence: 0.5, reasoning: 'Fever and cough may indicate pneumonia' });
+    }
+    
+    if (lower.includes('fever') && lower.includes('headache')) {
+      suggestions.push({ condition: 'Viral Infection', confidence: 0.6, reasoning: 'Fever and headache suggest viral etiology' });
+      suggestions.push({ condition: 'Meningitis', confidence: 0.3, reasoning: 'Fever with headache requires urgent evaluation' });
+    }
+
+    if (lower.includes('chest pain')) {
+      suggestions.push({ condition: 'Acute Coronary Syndrome', confidence: 0.4, reasoning: 'Chest pain requires urgent cardiac evaluation' });
+      suggestions.push({ condition: 'Pulmonary Embolism', confidence: 0.3, reasoning: 'Chest pain may indicate pulmonary embolism' });
+    }
+
+    if (lower.includes('abdominal pain')) {
+      suggestions.push({ condition: 'Gastroenteritis', confidence: 0.5, reasoning: 'Abdominal pain with fever suggests gastroenteritis' });
+      suggestions.push({ condition: 'Appendicitis', confidence: 0.3, reasoning: 'Abdominal pain may indicate appendicitis' });
+    }
+
+    if (lower.includes('headache') && lower.includes('stiff neck')) {
+      suggestions.push({ condition: 'Meningitis', confidence: 0.6, reasoning: 'Headache with neck stiffness is classic for meningitis' });
+    }
+
+    return suggestions.length > 0 ? suggestions : [{condition: 'Requires clinical evaluation', confidence: 0.5, reasoning: 'Non-specific presentation requires clinical assessment'}];
   }
 
   private buildTriagePrompt(symptoms: string, age: number, sex: string): string {
-    return `Assess triage risk for patient age ${age}, sex ${sex}, symptoms: ${symptoms}. Return JSON with keys riskTier, dangerSigns, uncertainty, recommendedNextSteps, watchOuts, referralRecommended, disclaimer, reasoning.`;
+    return `
+You are a medical triage assistant. Assess the following patient presentation:
+
+Patient: ${age}-year-old ${sex}
+Chief Complaint: ${symptoms}
+
+Provide a structured assessment with:
+1. Risk Tier (RED/YELLOW/GREEN)
+2. Key danger signs if any
+3. Recommended next steps
+4. Suggested questions for follow-up
+5. Potential diagnoses with confidence scores
+
+Be conservative - when in doubt, recommend evaluation by healthcare professional.
+    `.trim();
   }
 }
-

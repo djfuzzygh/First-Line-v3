@@ -12,7 +12,9 @@ import { HuggingFaceAIService } from './huggingface-ai.service';
 
 export class AIProviderFactory {
   static create(config?: Partial<AIProviderConfig>): any {
-    const provider = config?.provider || process.env.AI_PROVIDER || 'vertexai';
+    // Default to HuggingFace (publicly accessible, competition-compliant)
+    // Fallback order: HuggingFace → Kaggle → VertexAI → Bedrock
+    const provider = config?.provider || process.env.AI_PROVIDER || 'huggingface';
 
     switch (provider) {
       case 'bedrock':
@@ -43,7 +45,7 @@ export class AIProviderFactory {
           maxInputTokens: config?.maxInputTokens || 2000,
           maxOutputTokens: config?.maxOutputTokens || 500,
           temperature: config?.temperature || 0.2,
-          timeoutMs: config?.timeoutMs || 30000,
+          timeoutMs: config?.timeoutMs || 120000,
         });
 
       case 'huggingface':
@@ -54,7 +56,7 @@ export class AIProviderFactory {
           maxInputTokens: config?.maxInputTokens || 2000,
           maxOutputTokens: config?.maxOutputTokens || 500,
           temperature: config?.temperature || 0.2,
-          timeoutMs: config?.timeoutMs || 30000,
+          timeoutMs: config?.timeoutMs || 60000,
         });
 
       default:

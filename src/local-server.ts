@@ -34,8 +34,9 @@ if (!process.env.FIRESTORE_IN_MEMORY && !process.env.K_SERVICE) {
     if (!hasInlineCreds && !hasFileCreds) {
         process.env.FIRESTORE_IN_MEMORY = 'true';
         // Keep local/dev runs responsive when cloud credentials are absent.
+        // Use HuggingFace as primary (competition-compliant, publicly accessible)
         if (!process.env.AI_PROVIDER) {
-            process.env.AI_PROVIDER = 'kaggle';
+            process.env.AI_PROVIDER = 'huggingface';
         }
     }
 }
@@ -114,7 +115,13 @@ app.use(bodyParser.json({ limit: '100kb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '100kb' }));
 
 // CORS — restrict to allowed origins (configurable via ALLOWED_ORIGINS env var)
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:5173')
+const DEFAULT_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'https://fl2-dashboard-14729.web.app',
+    'https://fl2-clinician-14729.web.app'
+];
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || DEFAULT_ORIGINS.join(','))
     .split(',')
     .map(o => o.trim());
 

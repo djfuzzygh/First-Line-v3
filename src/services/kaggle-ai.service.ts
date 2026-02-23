@@ -1,5 +1,5 @@
 import { AIProvider, AIProviderConfig } from './ai-provider.interface';
-import { AIResponse, Encounter } from '../models';
+import { AIResponse, Encounter, LabResults, DiagnosisSuggestion } from '../models';
 
 type KaggleInferenceResponse = {
   riskTier?: string;
@@ -15,6 +15,10 @@ type KaggleInferenceResponse = {
   uncertainty?: string;
   disclaimer?: string;
   reasoning?: string;
+  diagnosisSuggestions?: DiagnosisSuggestion[];
+  diagnosis_suggestions?: DiagnosisSuggestion[];
+  followupQuestions?: string[];
+  followup_questions?: string[];
 };
 
 export class KaggleAIService implements AIProvider {
@@ -29,7 +33,7 @@ export class KaggleAIService implements AIProvider {
       maxInputTokens: config.maxInputTokens || 2000,
       maxOutputTokens: config.maxOutputTokens || 500,
       temperature: config.temperature || 0.2,
-      timeoutMs: config.timeoutMs || 30000,
+      timeoutMs: config.timeoutMs || 120000,
     };
 
     this.endpoint = this.config.endpoint || '';
@@ -53,7 +57,8 @@ export class KaggleAIService implements AIProvider {
   async generateTriageAssessment(
     encounter: Encounter,
     followupResponses: string[],
-    protocols: string
+    protocols: string,
+    labResults?: LabResults
   ): Promise<AIResponse> {
     const symptoms = [
       encounter.Symptoms,
@@ -63,16 +68,30 @@ export class KaggleAIService implements AIProvider {
       .filter(Boolean)
       .join(' | ');
 
+    const labSection = labResults ? `
+Lab Results:
+- WBC: ${labResults.wbc} K/μL
+- Hemoglobin: ${labResults.hemoglobin} g/dL
+- Glucose: ${labResults.glucose} mg/dL
+- Temperature: ${labResults.temperature}°C
+- Blood Pressure: ${labResults.bloodPressure}
+- CRP: ${labResults.crp}
+- Lactate: ${labResults.lactate}
+  ` : '';
+
+    const enhancedSymptoms = symptoms + labSection;
+
     const payload = {
-      symptoms,
+      symptoms: enhancedSymptoms,
       age: encounter.Demographics.age,
       sex: encounter.Demographics.sex,
       location: encounter.Demographics.location,
       followupResponses,
+      labResults,
     };
 
-    const raw = this.endpoint ? await this.callKaggle(payload) : this.localFallback(symptoms);
-    return this.normalizeTriage(raw, symptoms);
+    const raw = this.endpoint ? await this.callKaggle(payload) : this.localFallback(enhancedSymptoms);
+    return this.normalizeTriage(raw, enhancedSymptoms, labResults);
   }
 
   async normalizeIntake(
@@ -274,14 +293,14 @@ export class KaggleAIService implements AIProvider {
     };
   }
 
-  private normalizeTriage(raw: KaggleInferenceResponse, symptoms: string): AIResponse {
+  private normalizeTriage(raw: KaggleInferenceResponse, symptoms: string, labResults?: LabResults): AIResponse {
     const risk = String(raw.riskTier || raw.risk_tier || 'YELLOW').toUpperCase();
     const normalizedRisk = risk === 'RED' || risk === 'GREEN' ? risk : 'YELLOW';
     const uncertainty = String(raw.uncertainty || 'MEDIUM').toUpperCase();
     const normalizedUncertainty =
       uncertainty === 'LOW' || uncertainty === 'HIGH' ? uncertainty : 'MEDIUM';
 
-    return {
+    const response: AIResponse = {
       riskTier: normalizedRisk,
       dangerSigns: raw.dangerSigns || raw.danger_signs || [],
       uncertainty: normalizedUncertainty as AIResponse['uncertainty'],
@@ -291,5 +310,22 @@ export class KaggleAIService implements AIProvider {
       disclaimer: raw.disclaimer || 'This is not a diagnosis. Seek professional medical care.',
       reasoning: raw.reasoning || `Kaggle inference route used for symptoms: ${symptoms.slice(0, 120)}`,
     };
+
+    // Add optional diagnosis suggestions if present
+    if (raw.diagnosisSuggestions || raw.diagnosis_suggestions) {
+      response.diagnosisSuggestions = raw.diagnosisSuggestions || raw.diagnosis_suggestions;
+    }
+
+    // Add optional followup questions if present
+    if (raw.followupQuestions || raw.followup_questions) {
+      response.followupQuestions = raw.followupQuestions || raw.followup_questions;
+    }
+
+    // Add lab results if provided
+    if (labResults) {
+      response.labResults = labResults;
+    }
+
+    return response;
   }
 }

@@ -23,6 +23,11 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface SignupRequest {
+  email: string;
+  password: string;
+}
+
 export interface AuthResponse {
   token: string;
   user: {
@@ -57,6 +62,7 @@ export interface TriageRequest {
 
 export const authAPI = {
   login: (data: LoginRequest) => api.post<AuthResponse>('/auth/login', data),
+  signup: (data: SignupRequest) => api.post<AuthResponse>('/auth/signup', data),
   getProfile: () => api.get('/auth/me'),
 };
 
@@ -75,6 +81,68 @@ export const encounterAPI = {
     api.post(`/encounters/${encounterId}/triage`, data),
   generateReferral: (encounterId: string) =>
     api.post(`/encounters/${encounterId}/referral`),
+};
+
+function getKaggleInferUrl(): string {
+  const API_BASE_URL = API_URL;
+  const configured = import.meta.env.VITE_KAGGLE_INFER_URL || '';
+  if (!configured) {
+    return `${API_BASE_URL.replace(/\/+$/, '')}/kaggle/infer`;
+  }
+  const base = configured.trim().replace(/\/+$/, '');
+  if (base.endsWith('/infer')) {
+    return base;
+  }
+  return `${base}/infer`;
+}
+
+function getKaggleHealthUrl(): string {
+  const API_BASE_URL = API_URL;
+  const configured = import.meta.env.VITE_KAGGLE_HEALTH_URL || '';
+  if (!configured) {
+    return `${API_BASE_URL.replace(/\/+$/, '')}/kaggle/health`;
+  }
+  const base = configured.trim().replace(/\/+$/, '');
+  if (base.endsWith('/health')) {
+    return base;
+  }
+  if (base.endsWith('/infer')) {
+    return `${base.slice(0, -'/infer'.length)}/health`;
+  }
+  return `${base}/health`;
+}
+
+export const kaggleApi = {
+  async infer(payload: {
+    symptoms: string;
+    age?: number;
+    sex?: string;
+    location?: string;
+    followupResponses?: string[];
+    labResults?: {
+      wbc?: number;
+      hemoglobin?: number;
+      temperature?: number;
+      crp?: number;
+      bloodPressure?: string;
+      lactate?: number;
+    };
+  }) {
+    const response = await axios.post(getKaggleInferUrl(), payload, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      timeout: 60000,
+    });
+    return response.data;
+  },
+
+  async health() {
+    const response = await axios.get(getKaggleHealthUrl(), {
+      timeout: 30000,
+    });
+    return response.data;
+  },
 };
 
 export default api;

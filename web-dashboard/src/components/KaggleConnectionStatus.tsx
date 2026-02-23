@@ -27,7 +27,9 @@ export const KaggleConnectionStatus: React.FC = () => {
 
   const checkKaggleStatus = async () => {
     try {
-      const response = await fetch('/kaggle/health');
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://firstline-backend-2lvxjb44qa-uc.a.run.app';
+      const healthUrl = `${apiUrl}/kaggle/health`;
+      const response = await fetch(healthUrl);
       if (response.ok) {
         const data = (await response.json()) as KaggleStatus;
         setStatus(data);
@@ -65,16 +67,17 @@ export const KaggleConnectionStatus: React.FC = () => {
   const color = isConnected ? '#4CAF50' : '#FF9800';
   const bgColor = isConnected ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 152, 0, 0.1)';
 
+  const statusText = isConnected ? 'Online' : 'Offline (Using Fallback)';
+  const headerIcon = isConnected ? '✅' : '⚠️';
+  const headerText = isConnected ? 'Kaggle Connected' : 'Kaggle Offline';
+
+  const tooltipContent = `${headerIcon} ${headerText}\n\nStatus: ${statusText}\nLatency: ${status.latencyMs}ms\n${status.kaggleUrl ? `URL: ${status.kaggleUrl}\n` : ''}Last checked: ${new Date(status.timestamp).toLocaleTimeString()}\n\n${status.message}`;
+
   return (
     <Tooltip
       title={
         <Box sx={{ whiteSpace: 'pre-wrap', maxWidth: 300 }}>
-          {`${isConnected ? '✅ Kaggle Connected' : '⚠️ Kaggle Offline'}\n\n`}
-          {`Status: ${isConnected ? 'Online' : 'Offline (Using Fallback)}\n`}
-          {`Latency: ${status.latencyMs}ms\n`}
-          {status.kaggleUrl && `URL: ${status.kaggleUrl}\n`}
-          {`Last checked: ${new Date(status.timestamp).toLocaleTimeString()}\n\n`}
-          {status.message}
+          {tooltipContent}
         </Box>
       }
     >

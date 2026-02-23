@@ -17,7 +17,9 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [isSignup, setIsSignup] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const { login, signup } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,10 +28,29 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await login(email, password);
-      navigate('/');
+      if (isSignup) {
+        if (password !== confirmPassword) {
+          setError('Passwords do not match');
+          setLoading(false);
+          return;
+        }
+        if (password.length < 6) {
+          setError('Password must be at least 6 characters');
+          setLoading(false);
+          return;
+        }
+        await signup(email, password);
+        setError('');
+        setIsSignup(false);
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
+      } else {
+        await login(email, password);
+        navigate('/');
+      }
     } catch (err: any) {
-      setError(err.response?.data?.error?.message || 'Login failed');
+      setError(err.response?.data?.error?.message || (isSignup ? 'Signup failed' : 'Login failed'));
     } finally {
       setLoading(false);
     }
@@ -53,7 +74,7 @@ export default function Login() {
             </Typography>
           </Box>
           <Typography component="h2" variant="h6" align="center" gutterBottom>
-            Clinical Triage System
+            {isSignup ? 'Create Account' : 'Clinical Triage System'}
           </Typography>
 
           {error && (
@@ -79,10 +100,22 @@ export default function Login() {
               fullWidth
               label="Password"
               type="password"
-              autoComplete="current-password"
+              autoComplete={isSignup ? 'new-password' : 'current-password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+            {isSignup && (
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label="Confirm Password"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            )}
             <Button
               type="submit"
               fullWidth
@@ -90,8 +123,26 @@ export default function Login() {
               sx={{ mt: 3, mb: 2 }}
               disabled={loading}
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? (isSignup ? 'Creating account...' : 'Signing in...') : (isSignup ? 'Sign Up' : 'Sign In')}
             </Button>
+            <Box sx={{ textAlign: 'center', mt: 2 }}>
+              <Typography variant="body2">
+                {isSignup ? 'Already have an account?' : 'Don\'t have an account?'}
+                {' '}
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setIsSignup(!isSignup);
+                    setError('');
+                    setEmail('');
+                    setPassword('');
+                    setConfirmPassword('');
+                  }}
+                >
+                  {isSignup ? 'Sign In' : 'Sign Up'}
+                </Button>
+              </Typography>
+            </Box>
           </Box>
         </Paper>
       </Box>

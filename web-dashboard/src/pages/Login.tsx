@@ -21,7 +21,10 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [isSignup, setIsSignup] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { login, signup } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,18 +41,37 @@ export default function Login() {
       return;
     }
 
+    if (isSignup && password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (isSignup && password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await login(email, password);
-      navigate('/');
+      if (isSignup) {
+        await signup(email, password);
+        setError('');
+        setIsSignup(false);
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
+      } else {
+        await login(email, password);
+        navigate('/');
+      }
     } catch (err: any) {
       if (err.response?.status === 401) {
         setError('Invalid email or password');
       } else if (err.message?.includes('Network')) {
         setError('Network error. Please check your connection.');
       } else {
-        setError(err.response?.data?.error?.message || 'Login failed. Please try again.');
+        setError(err.response?.data?.error?.message || (isSignup ? 'Signup failed. Please try again.' : 'Login failed. Please try again.'));
       }
     } finally {
       setLoading(false);
@@ -79,10 +101,10 @@ export default function Login() {
           </Box>
 
           <Typography variant="h5" gutterBottom>
-            Welcome Back
+            {isSignup ? 'Create Account' : 'Welcome Back'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Sign in to access the dashboard
+            {isSignup ? 'Sign up to get started' : 'Sign in to access the dashboard'}
           </Typography>
 
           {error && (
@@ -110,7 +132,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               margin="normal"
-              autoComplete="current-password"
+              autoComplete={isSignup ? 'new-password' : 'current-password'}
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
@@ -125,6 +147,30 @@ export default function Login() {
               }}
             />
 
+            {isSignup && (
+              <TextField
+                fullWidth
+                label="Confirm Password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                margin="normal"
+                autoComplete="new-password"
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        edge="end"
+                      >
+                        {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            )}
+
             <Button
               fullWidth
               type="submit"
@@ -133,13 +179,31 @@ export default function Login() {
               disabled={loading}
               sx={{ mt: 3, mb: 2 }}
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? (isSignup ? 'Creating account...' : 'Signing in...') : (isSignup ? 'Sign Up' : 'Sign In')}
             </Button>
 
-            <Box sx={{ textAlign: 'center' }}>
-              <Link href="#" variant="body2" underline="hover">
-                Forgot password?
-              </Link>
+            <Box sx={{ textAlign: 'center', mt: 2 }}>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                {isSignup ? 'Already have an account?' : 'Don\'t have an account?'}
+                {' '}
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setIsSignup(!isSignup);
+                    setError('');
+                    setEmail('');
+                    setPassword('');
+                    setConfirmPassword('');
+                  }}
+                >
+                  {isSignup ? 'Sign In' : 'Sign Up'}
+                </Button>
+              </Typography>
+              {!isSignup && (
+                <Link href="#" variant="body2" underline="hover">
+                  Forgot password?
+                </Link>
+              )}
             </Box>
           </form>
         </CardContent>

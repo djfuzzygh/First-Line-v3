@@ -15,6 +15,7 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -53,6 +54,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(newUser);
   };
 
+  const signup = async (email: string, password: string) => {
+    const response = await axios.post(`${API_BASE_URL}/auth/signup`, {
+      email: email.toLowerCase().trim(),
+      password,
+    });
+
+    const { token: newToken, user: newUser } = response.data;
+
+    localStorage.setItem('authToken', newToken);
+    localStorage.setItem('userInfo', JSON.stringify(newUser));
+
+    setToken(newToken);
+    setUser(newUser);
+  };
+
   const logout = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('userInfo');
@@ -67,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token,
         loading,
         login,
+        signup,
         logout,
         isAuthenticated: !!token,
       }}
