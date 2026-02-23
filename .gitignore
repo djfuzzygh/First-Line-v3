@@ -57,3 +57,4 @@ __pycache__/
 
 # Local tooling artifacts
 .kiro/
+*.env.production
