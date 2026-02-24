@@ -10,6 +10,7 @@ import NewEncounter from './pages/NewEncounter';
 import TriageSession from './pages/TriageSession';
 import EncounterHistory from './pages/EncounterHistory';
 import Simulator from './pages/Simulator';
+import IVRDemo from './pages/IVRDemo';
 
 const theme = createTheme({
   palette: {
@@ -49,6 +50,7 @@ export default function App() {
                     <Route path="/triage/:encounterId" element={<TriageSession />} />
                     <Route path="/history" element={<EncounterHistory />} />
                     <Route path="/simulator" element={<Simulator />} />
+                    <Route path="/voice-ivr" element={<IVRDemo />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Layout>

@@ -14,6 +14,7 @@ import {
   History,
   LocalHospital,
   Assessment,
+  Phone,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -99,6 +100,32 @@ export default function Home() {
                 🟢 GREEN - Routine care, self-care possible
               </Typography>
             </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <Phone sx={{ fontSize: 40, mr: 2, color: 'warning.main' }} />
+                <Typography variant="h5" component="div">
+                  Voice IVR Demo
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                Try the interactive voice triage system. Simulates toll-free number
+                experience with voice-driven menu and SMS results.
+              </Typography>
+            </CardContent>
+            <CardActions>
+              <Button
+                size="large"
+                variant="outlined"
+                onClick={() => navigate('/voice-ivr')}
+              >
+                Demo Voice Triage
+              </Button>
+            </CardActions>
           </Card>
         </Grid>
 
