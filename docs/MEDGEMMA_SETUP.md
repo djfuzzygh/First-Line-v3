@@ -14,7 +14,7 @@ The FirstLine platform now supports multiple AI providers:
 ```bash
 # Set AI provider
 export AI_PROVIDER=vertexai
-export VERTEXAI_MODEL_ID=medgemma-2b
+export VERTEXAI_MODEL_ID=medgemma-4b-it
 export GCP_PROJECT_ID=your-project-id
 export GCP_REGION=us-central1
 ```
@@ -68,7 +68,7 @@ No configuration needed - automatically uses instance service account.
 
 ### Available Models
 
-1. **medgemma-2b** (Recommended)
+1. **medgemma-4b-it** (Recommended)
    - 2 billion parameters
    - Fast inference
    - Good for triage
@@ -84,7 +84,7 @@ No configuration needed - automatically uses instance service account.
 
 ```bash
 # Use 2B model (faster, cheaper)
-export VERTEXAI_MODEL_ID=medgemma-2b
+export VERTEXAI_MODEL_ID=medgemma-4b-it
 
 # Use 7B model (more accurate)
 export VERTEXAI_MODEL_ID=medgemma-7b
@@ -109,7 +109,7 @@ const lambdaEnvironment = {
   BEDROCK_MODEL_ID: process.env.BEDROCK_MODEL_ID || 'anthropic.claude-3-haiku-20240307-v1:0',
   
   // Google Vertex AI (MedGemma)
-  VERTEXAI_MODEL_ID: process.env.VERTEXAI_MODEL_ID || 'medgemma-2b',
+  VERTEXAI_MODEL_ID: process.env.VERTEXAI_MODEL_ID || 'medgemma-4b-it',
   GCP_PROJECT_ID: process.env.GCP_PROJECT_ID,
   GCP_REGION: process.env.GCP_REGION || 'us-central1',
   GCP_ACCESS_TOKEN: process.env.GCP_ACCESS_TOKEN,
@@ -253,7 +253,7 @@ await cloudwatch.putMetricData({
       Unit: 'Milliseconds',
       Dimensions: [
         { Name: 'Provider', Value: 'vertexai' },
-        { Name: 'Model', Value: 'medgemma-2b' },
+        { Name: 'Model', Value: 'medgemma-4b-it' },
       ],
     },
   ],
@@ -286,7 +286,7 @@ Solution: Set `GCP_ACCESS_TOKEN` or run on GCP with service account.
 
 **2. Model Not Found**
 ```
-Error: Model medgemma-2b not found
+Error: Model medgemma-4b-it not found
 ```
 Solution: Verify model ID and region. MedGemma may not be available in all regions.
 

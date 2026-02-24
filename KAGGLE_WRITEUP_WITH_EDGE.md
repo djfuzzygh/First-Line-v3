@@ -121,9 +121,9 @@ A hard-coded danger sign detector runs **before** MedGemma and overrides the AI 
 - Use case: Urban clinics, well-connected facilities
 
 **TIER 2: Edge Deployment (Fallback 1)** ← **NEW**
-- Provider: Local Raspberry Pi (MedGemma-2b-it)
+- Provider: Local Raspberry Pi (MedGemma-4b-it)
 - Hardware: Raspberry Pi 4 (8GB RAM) or Pi 5
-- Model: `medgemma-2b-it` (4GB footprint)
+- Model: `medgemma-4b-it` (4GB footprint)
 - Latency: 60-120s per triage (acceptable for async queuing)
 - Cost: $50-100 per device
 - Use case: Rural clinics with unreliable internet; data sovereignty
@@ -132,7 +132,7 @@ A hard-coded danger sign detector runs **before** MedGemma and overrides the AI 
 
 **TIER 3: Cloud Fallback (Fallback 2)**
 - Provider: Kaggle Notebook (fully local on any CPU)
-- Model: `medgemma-2b-it`
+- Model: `medgemma-4b-it`
 - Latency: 2-5 seconds per triage
 - Use case: Demo, reproducibility, emergency override
 
@@ -163,7 +163,7 @@ COPY . .
 RUN npm run build
 
 ENV AI_PROVIDER=medgemma-local
-ENV MODEL_PATH=/models/medgemma-2b-it
+ENV MODEL_PATH=/models/medgemma-4b-it
 ENV DEVICE=cpu
 
 CMD ["npm", "start"]

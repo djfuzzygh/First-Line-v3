@@ -8,7 +8,7 @@ FirstLine 2.0 (MedGemma-enabled multimodal triage)
 Describe the clinical workflow gap, user, and impact assumptions.
 
 ### Overall solution
-- HAI-DEF model used: `medgemma-2b` (or `medgemma-7b`)
+- HAI-DEF model used: `medgemma-4b-it` (or `medgemma-7b`)
 - Channels: app, SMS, USSD, voice
 - Human-in-the-loop safeguards and non-diagnostic language
 

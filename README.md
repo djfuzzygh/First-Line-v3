@@ -125,7 +125,7 @@ Note: `infrastructure/` currently contains legacy AWS CDK artifacts. For GCP-fir
 - `KAGGLE_MODEL_NAME` (optional model label for Kaggle provider)
 - `HF_INFER_URL` (optional custom HF endpoint when `AI_PROVIDER=huggingface`)
 - `HF_API_TOKEN` (HF API token for hosted inference)
-- `HF_MODEL_ID` (defaults to `google/medgemma-2b-it`)
+- `HF_MODEL_ID` (defaults to `google/medgemma-4b-it`)
 
 ### Kaggle Provider Mode
 
@@ -148,10 +148,10 @@ Expected Kaggle response keys (flexible):
 
 ```bash
 export AI_PROVIDER=huggingface
-export HF_MODEL_ID=google/medgemma-2b-it
+export HF_MODEL_ID=google/medgemma-4b-it
 export HF_API_TOKEN=<hf-token>
 # Optional custom endpoint:
-export HF_INFER_URL=https://api-inference.huggingface.co/models/google/medgemma-2b-it
+export HF_INFER_URL=https://api-inference.huggingface.co/models/google/medgemma-4b-it
 ```
 
 ## Configuration

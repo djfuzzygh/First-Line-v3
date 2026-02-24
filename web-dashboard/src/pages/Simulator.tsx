@@ -22,7 +22,7 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material';
-import { Mic, MicOff, Stop } from '@mui/icons-material';
+import { Mic, MicOff } from '@mui/icons-material';
 import { kaggleApi } from '../services/api';
 
 interface TabPanelProps {
@@ -63,6 +63,10 @@ export default function Simulator() {
     bloodPressure: '',
     lactate: '',
   });
+
+  // Follow-up questions state
+  const [followupAnswers, setFollowupAnswers] = useState<string[]>([]);
+  const [followupRound, setFollowupRound] = useState(0);
 
   // Referral state
   const [showReferralModal, setShowReferralModal] = useState(false);
@@ -125,19 +129,46 @@ export default function Simulator() {
   };
 
   const parseVoiceInput = (transcript: string) => {
-    // Simple parsing logic - user should say something like "I am 45 years old, male, with fever and cough"
     const lower = transcript.toLowerCase();
-
-    // Parse age (look for numbers)
     const ageMatch = transcript.match(/\b(\d{1,3})\s*(?:years|year old|yo|yrs)\b/i);
     const parsedAge = ageMatch ? ageMatch[1] : '';
-
-    // Parse sex/gender
     const isMale = /\b(male|man|boy|he)\b/i.test(lower);
     const isFemale = /\b(female|woman|girl|she)\b/i.test(lower);
     const parsedSex = isMale ? 'M' : isFemale ? 'F' : '';
-
     return { parsedAge, parsedSex, symptoms: transcript };
+  };
+
+  const runInference = async (
+    inferSymptoms: string,
+    inferAge: number,
+    inferSex: string,
+    inferLabResults?: any,
+    followupResponses?: string[]
+  ) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await kaggleApi.infer({
+        symptoms: inferSymptoms,
+        age: inferAge,
+        sex: inferSex,
+        followupResponses: followupResponses && followupResponses.length > 0 ? followupResponses : undefined,
+        labResults: inferLabResults && Object.keys(inferLabResults).length > 0 ? inferLabResults : undefined,
+      });
+      setResult(res);
+
+      // Initialize follow-up answer fields
+      if (res.followupQuestions && res.followupQuestions.length > 0) {
+        if (!followupResponses || followupResponses.length === 0) {
+          setFollowupAnswers(res.followupQuestions.map(() => ''));
+        }
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.error?.message || 'Failed to run triage assessment');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleRunVoiceSimulation = async () => {
@@ -153,28 +184,18 @@ export default function Simulator() {
       return;
     }
 
-    setLoading(true);
-    setError(null);
     setResult(null);
-
-    try {
-      const result = await kaggleApi.infer({
-        symptoms,
-        age: parseInt(parsedAge),
-        sex: parsedSex,
-      });
-      setResult(result);
-    } catch (err: any) {
-      setError(err.response?.data?.error?.message || 'Failed to run triage assessment');
-    } finally {
-      setLoading(false);
-    }
+    setFollowupAnswers([]);
+    setFollowupRound(0);
+    await runInference(symptoms, parseInt(parsedAge), parsedSex);
   };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
     setResult(null);
     setError(null);
+    setFollowupAnswers([]);
+    setFollowupRound(0);
   };
 
   const handleRunSimulation = async () => {
@@ -183,32 +204,56 @@ export default function Simulator() {
       return;
     }
 
-    setLoading(true);
-    setError(null);
     setResult(null);
+    setFollowupAnswers([]);
+    setFollowupRound(0);
 
-    try {
-      // Build lab object only if fields are filled
-      const labData: any = {};
-      if (labResults.wbc) labData.wbc = parseFloat(labResults.wbc);
-      if (labResults.hemoglobin) labData.hemoglobin = parseFloat(labResults.hemoglobin);
-      if (labResults.temperature) labData.temperature = parseFloat(labResults.temperature);
-      if (labResults.bloodPressure) labData.bloodPressure = labResults.bloodPressure;
-      if (labResults.crp) labData.crp = parseFloat(labResults.crp);
-      if (labResults.lactate) labData.lactate = parseFloat(labResults.lactate);
+    // Build lab object only if fields are filled
+    const labData: any = {};
+    if (labResults.wbc) labData.wbc = parseFloat(labResults.wbc);
+    if (labResults.hemoglobin) labData.hemoglobin = parseFloat(labResults.hemoglobin);
+    if (labResults.temperature) labData.temperature = parseFloat(labResults.temperature);
+    if (labResults.bloodPressure) labData.bloodPressure = labResults.bloodPressure;
+    if (labResults.crp) labData.crp = parseFloat(labResults.crp);
+    if (labResults.lactate) labData.lactate = parseFloat(labResults.lactate);
 
-      const result = await kaggleApi.infer({
-        symptoms,
-        age: parseInt(age),
-        sex,
-        labResults: Object.keys(labData).length > 0 ? labData : undefined,
-      });
-      setResult(result);
-    } catch (err: any) {
-      setError(err.response?.data?.error?.message || 'Failed to run triage assessment');
-    } finally {
-      setLoading(false);
+    await runInference(symptoms, parseInt(age), sex, labData);
+  };
+
+  const handleSubmitFollowups = async () => {
+    const answered = followupAnswers.filter((a) => a.trim() !== '');
+    if (answered.length === 0) {
+      setError('Please answer at least one follow-up question before resubmitting.');
+      return;
     }
+
+    setFollowupRound((prev) => prev + 1);
+
+    // Build follow-up context string
+    const followupContext = result.followupQuestions
+      .map((q: string, i: number) => {
+        const answer = followupAnswers[i]?.trim();
+        return answer ? `Q: ${q} A: ${answer}` : null;
+      })
+      .filter(Boolean)
+      .join('; ');
+
+    // Build lab data
+    const labData: any = {};
+    if (labResults.wbc) labData.wbc = parseFloat(labResults.wbc);
+    if (labResults.hemoglobin) labData.hemoglobin = parseFloat(labResults.hemoglobin);
+    if (labResults.temperature) labData.temperature = parseFloat(labResults.temperature);
+    if (labResults.bloodPressure) labData.bloodPressure = labResults.bloodPressure;
+    if (labResults.crp) labData.crp = parseFloat(labResults.crp);
+    if (labResults.lactate) labData.lactate = parseFloat(labResults.lactate);
+
+    await runInference(
+      symptoms,
+      parseInt(age),
+      sex,
+      labData,
+      [followupContext]
+    );
   };
 
   const handleReset = () => {
@@ -225,6 +270,8 @@ export default function Simulator() {
     });
     setResult(null);
     setError(null);
+    setFollowupAnswers([]);
+    setFollowupRound(0);
   };
 
   const generateSOAPReferral = async () => {
@@ -235,7 +282,6 @@ export default function Simulator() {
 
     setReferralGenerating(true);
     try {
-      // Generate SOAP formatted referral
       const soapContent = `
 REFERRAL DOCUMENT
 ================
@@ -252,10 +298,12 @@ SUBJECTIVE
 Chief Complaint: ${symptoms}
 
 OBJECTIVE
-Temperature: ${labResults.temperature ? labResults.temperature + '°C' : 'Not recorded'}
-WBC: ${labResults.wbc ? labResults.wbc + ' K/μL' : 'Not recorded'}
+Temperature: ${labResults.temperature ? labResults.temperature + ' C' : 'Not recorded'}
+WBC: ${labResults.wbc ? labResults.wbc + ' K/uL' : 'Not recorded'}
+Hemoglobin: ${labResults.hemoglobin ? labResults.hemoglobin + ' g/dL' : 'Not recorded'}
 Blood Pressure: ${labResults.bloodPressure || 'Not recorded'}
 CRP: ${labResults.crp ? labResults.crp + ' mg/L' : 'Not recorded'}
+Lactate: ${labResults.lactate ? labResults.lactate + ' mmol/L' : 'Not recorded'}
 
 ASSESSMENT
 Risk Tier: ${result.riskTier}
@@ -281,7 +329,7 @@ ${result.recommendedNextSteps?.map((step: string) => `- ${step}`).join('\n') || 
 
 Referral Recommended: ${result.referralRecommended ? 'YES' : 'NO'}
 
-Follow-up Questions to Ask Patient:
+Follow-up Questions Asked:
 ${result.followupQuestions?.map((q: string) => `- ${q}`).join('\n') || '- None'}
 
 ---
@@ -289,7 +337,6 @@ Generated by FirstLine Clinical Triage System
 This is a clinical support document, not a diagnosis.
       `;
 
-      // Create downloadable file
       const element = document.createElement('a');
       const file = new Blob([soapContent], { type: 'text/plain' });
       element.href = URL.createObjectURL(file);
@@ -325,7 +372,7 @@ This is a clinical support document, not a diagnosis.
         </Tabs>
 
         <TabPanel value={tabValue} index={0}>
-          <Box sx={{ maxWidth: 500 }}>
+          <Box sx={{ maxWidth: 600 }}>
             <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
               Simulate a USSD/SMS triage interaction. Enter patient details to test the system.
             </Typography>
@@ -374,11 +421,11 @@ This is a clinical support document, not a diagnosis.
                   <TextField
                     fullWidth
                     size="small"
-                    label="WBC (K/μL)"
+                    label="WBC (K/uL)"
                     type="number"
                     value={labResults.wbc}
                     onChange={(e) => setLabResults({...labResults, wbc: e.target.value})}
-                    placeholder="e.g., 15000"
+                    placeholder="e.g., 7.2"
                   />
                   <TextField
                     fullWidth
@@ -392,7 +439,7 @@ This is a clinical support document, not a diagnosis.
                   <TextField
                     fullWidth
                     size="small"
-                    label="Temperature (°C)"
+                    label="Temperature (C)"
                     type="number"
                     value={labResults.temperature}
                     onChange={(e) => setLabResults({...labResults, temperature: e.target.value})}
@@ -406,6 +453,24 @@ This is a clinical support document, not a diagnosis.
                     onChange={(e) => setLabResults({...labResults, bloodPressure: e.target.value})}
                     placeholder="e.g., 120/80"
                   />
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="CRP (mg/L)"
+                    type="number"
+                    value={labResults.crp}
+                    onChange={(e) => setLabResults({...labResults, crp: e.target.value})}
+                    placeholder="e.g., 45"
+                  />
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Lactate (mmol/L)"
+                    type="number"
+                    value={labResults.lactate}
+                    onChange={(e) => setLabResults({...labResults, lactate: e.target.value})}
+                    placeholder="e.g., 1.5"
+                  />
                 </Stack>
               </Box>
 
@@ -417,7 +482,14 @@ This is a clinical support document, not a diagnosis.
                   disabled={loading || !age || !sex || !symptoms}
                   fullWidth
                 >
-                  {loading ? <CircularProgress size={24} /> : 'Run Triage Assessment'}
+                  {loading ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CircularProgress size={20} color="inherit" />
+                      <span>Analyzing...</span>
+                    </Box>
+                  ) : (
+                    'Run Triage Assessment'
+                  )}
                 </Button>
                 <Button
                   variant="outlined"
@@ -501,7 +573,14 @@ This is a clinical support document, not a diagnosis.
                     disabled={loading || !voiceTranscript}
                     fullWidth
                   >
-                    {loading ? <CircularProgress size={24} /> : 'Run Triage Assessment'}
+                    {loading ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CircularProgress size={20} color="inherit" />
+                        <span>Analyzing...</span>
+                      </Box>
+                    ) : (
+                      'Run Triage Assessment'
+                    )}
                   </Button>
                   <Button
                     variant="outlined"
@@ -528,25 +607,33 @@ This is a clinical support document, not a diagnosis.
             <Typography variant="h6" gutterBottom>
               Triage Result
             </Typography>
+            {result.source && (
+              <Chip label={`Source: ${result.source}`} size="small" sx={{ mb: 2 }} />
+            )}
 
-            <Box sx={{ mb: 2 }}>
+            {/* Risk Tier */}
+            <Box sx={{ mb: 2, p: 2, borderRadius: 2, backgroundColor:
+              result.riskTier === 'RED' ? '#FFEBEE' :
+              result.riskTier === 'YELLOW' ? '#FFF8E1' : '#E8F5E9'
+            }}>
               <Typography color="textSecondary">Risk Tier:</Typography>
               <Typography
                 variant="h5"
                 sx={{
                   color:
-                    result.riskTier === 'RED'
-                      ? '#F44336'
-                      : result.riskTier === 'YELLOW'
-                      ? '#FF9800'
-                      : '#4CAF50',
+                    result.riskTier === 'RED' ? '#F44336' :
+                    result.riskTier === 'YELLOW' ? '#FF9800' : '#4CAF50',
                   fontWeight: 'bold',
                 }}
               >
                 {result.riskTier}
+                {result.referralRecommended && (
+                  <Chip label="Referral Recommended" color="warning" size="small" sx={{ ml: 2, verticalAlign: 'middle' }} />
+                )}
               </Typography>
             </Box>
 
+            {/* Diagnosis Suggestions */}
             {result.diagnosisSuggestions && result.diagnosisSuggestions.length > 0 && (
               <Box sx={{ mb: 2 }}>
                 <Typography color="textSecondary">Diagnosis Suggestions:</Typography>
@@ -556,7 +643,7 @@ This is a clinical support document, not a diagnosis.
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <Box sx={{ flex: 1 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                            {diag.condition}
+                            {idx + 1}. {diag.condition}
                           </Typography>
                           <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
                             {diag.reasoning}
@@ -575,41 +662,85 @@ This is a clinical support document, not a diagnosis.
               </Box>
             )}
 
+            {/* Danger Signs */}
             {result.dangerSigns && result.dangerSigns.length > 0 && (
-              <Box sx={{ mb: 2, p: 1.5, backgroundColor: '#FFEBEE', borderLeft: '4px solid #F44336', borderRadius: 1 }}>
-                <Typography color="error" sx={{ fontWeight: 'bold', mb: 1 }}>🚨 DANGER SIGNS:</Typography>
+              <Alert severity="error" sx={{ mb: 2 }}>
+                <Typography sx={{ fontWeight: 'bold', mb: 1 }}>DANGER SIGNS:</Typography>
                 <ul style={{ margin: '0px', paddingLeft: '20px' }}>
                   {result.dangerSigns.map((sign: string, idx: number) => (
-                    <li key={idx} style={{ marginBottom: '4px', color: '#C62828' }}>{sign}</li>
+                    <li key={idx} style={{ marginBottom: '4px' }}>{sign}</li>
                   ))}
                 </ul>
-              </Box>
+              </Alert>
             )}
 
+            {/* Watch-Outs */}
             {result.watchOuts && result.watchOuts.length > 0 && (
-              <Box sx={{ mb: 2, p: 1.5, backgroundColor: '#FFF3E0', borderLeft: '4px solid #FF9800', borderRadius: 1 }}>
-                <Typography sx={{ fontWeight: 'bold', mb: 1, color: '#E65100' }}>⚠️ WATCH-OUTS:</Typography>
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                <Typography sx={{ fontWeight: 'bold', mb: 1 }}>WATCH-OUTS:</Typography>
                 <ul style={{ margin: '0px', paddingLeft: '20px' }}>
                   {result.watchOuts.map((warning: string, idx: number) => (
-                    <li key={idx} style={{ marginBottom: '4px', color: '#E65100' }}>{warning}</li>
+                    <li key={idx} style={{ marginBottom: '4px' }}>{warning}</li>
                   ))}
                 </ul>
-              </Box>
+              </Alert>
             )}
 
+            {/* Follow-up Questions with Answer Fields */}
             {result.followupQuestions && result.followupQuestions.length > 0 && (
-              <Box sx={{ mb: 2 }}>
-                <Typography color="textSecondary" sx={{ mt: 2, fontWeight: 'bold' }}>❓ Follow-up Questions:</Typography>
-                <ul style={{ marginTop: '8px' }}>
-                  {result.followupQuestions.map((q: string, idx: number) => (
-                    <li key={idx} style={{ marginBottom: '4px' }}>{q}</li>
-                  ))}
-                </ul>
-              </Box>
+              <Card sx={{ mb: 2, border: '2px solid #1976d2' }}>
+                <CardContent>
+                  <Typography variant="h6" sx={{ mb: 1, color: '#1976d2' }}>
+                    Follow-up Questions (Round {followupRound + 1})
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                    Answer below and click "Resubmit" to refine the assessment with additional information.
+                  </Typography>
+                  <Stack spacing={2}>
+                    {result.followupQuestions.map((question: string, idx: number) => (
+                      <Box key={idx}>
+                        <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                          Q{idx + 1}: {question}
+                        </Typography>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          placeholder="Type your answer here..."
+                          value={followupAnswers[idx] || ''}
+                          onChange={(e) => {
+                            const newAnswers = [...followupAnswers];
+                            newAnswers[idx] = e.target.value;
+                            setFollowupAnswers(newAnswers);
+                          }}
+                          variant="outlined"
+                        />
+                      </Box>
+                    ))}
+                  </Stack>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={handleSubmitFollowups}
+                    disabled={loading}
+                    sx={{ mt: 2 }}
+                    fullWidth
+                  >
+                    {loading ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CircularProgress size={20} color="inherit" />
+                        <span>Refining Assessment...</span>
+                      </Box>
+                    ) : (
+                      'Resubmit with Follow-up Answers'
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
             )}
 
+            {/* Recommended Next Steps */}
             <Box sx={{ mb: 2 }}>
-              <Typography color="textSecondary" sx={{ fontWeight: 'bold' }}>📋 Recommended Next Steps:</Typography>
+              <Typography color="textSecondary" sx={{ fontWeight: 'bold' }}>Recommended Next Steps:</Typography>
               <ul>
                 {Array.isArray(result.recommendedNextSteps) &&
                   result.recommendedNextSteps.map((step: string, idx: number) => (
@@ -618,8 +749,9 @@ This is a clinical support document, not a diagnosis.
               </ul>
             </Box>
 
+            {/* AI Reasoning */}
             <Box sx={{ mb: 2 }}>
-              <Typography color="textSecondary" sx={{ fontWeight: 'bold' }}>💭 AI Reasoning:</Typography>
+              <Typography color="textSecondary" sx={{ fontWeight: 'bold' }}>AI Reasoning:</Typography>
               <Typography variant="body2" sx={{ p: 1, backgroundColor: '#f5f5f5', borderRadius: 1, mt: 1 }}>
                 {result.reasoning}
               </Typography>
@@ -634,7 +766,7 @@ This is a clinical support document, not a diagnosis.
                 onClick={() => setShowReferralModal(true)}
                 fullWidth
               >
-                📄 Create & Download Referral (SOAP)
+                Create & Download Referral (SOAP)
               </Button>
               <Button
                 variant="outlined"
@@ -679,7 +811,7 @@ This is a clinical support document, not a diagnosis.
             variant="contained"
             disabled={!selectedHospital || referralGenerating}
           >
-            {referralGenerating ? <CircularProgress size={20} /> : '📄 Generate & Download'}
+            {referralGenerating ? <CircularProgress size={20} /> : 'Generate & Download'}
           </Button>
         </DialogActions>
       </Dialog>

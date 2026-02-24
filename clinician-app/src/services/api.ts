@@ -132,7 +132,7 @@ export const kaggleApi = {
       headers: {
         'Content-Type': 'application/json',
       },
-      timeout: 60000,
+      timeout: 180000, // 3 minutes for MedGemma inference
     });
     return response.data;
   },

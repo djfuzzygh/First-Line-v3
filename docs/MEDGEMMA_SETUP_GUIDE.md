@@ -124,7 +124,7 @@ Add to `.env.deployment`:
 # GCP Configuration
 GCP_PROJECT_ID=your-project-id-here
 GCP_REGION=us-central1
-VERTEXAI_MODEL_ID=medgemma-2b
+VERTEXAI_MODEL_ID=medgemma-4b-it
 AI_PROVIDER=vertexai
 ```
 
@@ -147,7 +147,7 @@ aws lambda update-function-configuration \
     AI_PROVIDER=vertexai,
     GCP_PROJECT_ID=YOUR_PROJECT_ID,
     GCP_REGION=us-central1,
-    VERTEXAI_MODEL_ID=medgemma-2b,
+    VERTEXAI_MODEL_ID=medgemma-4b-it,
     GCP_ACCESS_TOKEN=YOUR_ACCESS_TOKEN,
     MOCK_AI=false,
     JWT_SECRET=$JWT_SECRET,

@@ -59,7 +59,7 @@ sudo apt-get install python3-pip nodejs npm
 pip3 install onnxruntime
 
 # Install model
-wget https://huggingface.co/google/medgemma-2b-onnx
+wget https://huggingface.co/google/medgemma-4b-it-onnx
 ```
 
 ### Option 2: NVIDIA Jetson Orin Nano (Recommended for Performance)
@@ -83,7 +83,7 @@ sudo apt-get install nvidia-jetpack
 pip3 install tensorrt
 
 # Optimize model for Jetson
-trtexec --onnx=medgemma-2b.onnx --saveEngine=medgemma-2b.trt
+trtexec --onnx=medgemma-4b-it.onnx --saveEngine=medgemma-4b-it.trt
 ```
 
 ### Option 3: Intel NUC (Recommended for Reliability)
@@ -106,7 +106,7 @@ trtexec --onnx=medgemma-2b.onnx --saveEngine=medgemma-2b.trt
 ```
 edge-device/
 ├── models/
-│   ├── medgemma-2b.onnx
+│   ├── medgemma-4b-it.onnx
 │   └── model-config.json
 ├── server/
 │   ├── inference-server.py
@@ -137,14 +137,14 @@ edge-device/
 ```bash
 # Convert MedGemma to ONNX format
 python convert_to_onnx.py \
-  --model google/medgemma-2b \
-  --output medgemma-2b.onnx \
+  --model google/medgemma-4b-it \
+  --output medgemma-4b-it.onnx \
   --quantize int8
 
 # Optimize for edge
 python optimize_for_edge.py \
-  --input medgemma-2b.onnx \
-  --output medgemma-2b-optimized.onnx \
+  --input medgemma-4b-it.onnx \
+  --output medgemma-4b-it-optimized.onnx \
   --target raspberry-pi
 ```
 
@@ -199,7 +199,7 @@ import json
 app = FastAPI()
 
 # Load model
-session = ort.InferenceSession("models/medgemma-2b.onnx")
+session = ort.InferenceSession("models/medgemma-4b-it.onnx")
 
 class TriageRequest(BaseModel):
     encounterId: str
@@ -261,7 +261,7 @@ def run_inference(prompt: str):
 async def health():
     return {
         "status": "healthy",
-        "model": "medgemma-2b",
+        "model": "medgemma-4b-it",
         "queueSize": get_sync_queue_size(),
         "diskSpace": get_disk_space(),
         "temperature": get_device_temperature()
@@ -361,8 +361,8 @@ npm install -g pm2
 
 # 5. Download model
 echo "Downloading MedGemma model..."
-wget -O models/medgemma-2b.onnx \
-  https://huggingface.co/google/medgemma-2b-onnx/resolve/main/model.onnx
+wget -O models/medgemma-4b-it.onnx \
+  https://huggingface.co/google/medgemma-4b-it-onnx/resolve/main/model.onnx
 
 # 6. Setup WiFi hotspot
 sudo systemctl enable hostapd

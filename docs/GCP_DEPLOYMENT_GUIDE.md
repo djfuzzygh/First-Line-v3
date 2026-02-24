@@ -34,7 +34,7 @@ Set environment variables:
 export GCP_PROJECT_ID=<PROJECT_ID>
 export GCP_REGION=us-central1
 export GCS_BUCKET_NAME=<YOUR_BUCKET_NAME>
-export VERTEXAI_MODEL_ID=medgemma-2b
+export VERTEXAI_MODEL_ID=medgemma-4b-it
 ```
 
 ## 4. Deploy backend (Cloud Run)

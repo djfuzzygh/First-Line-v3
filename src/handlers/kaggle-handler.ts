@@ -126,7 +126,7 @@ const expressHandler = async (req: Request, res: Response): Promise<void> => {
 
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10-second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 120-second timeout for MedGemma inference
 
         const upstreamResponse = await fetch(resolveKaggleInferUrl(kaggleUrl), {
           method: 'POST',
@@ -145,16 +145,9 @@ const expressHandler = async (req: Request, res: Response): Promise<void> => {
         clearTimeout(timeoutId);
 
         if (!upstreamResponse.ok) {
-          const upstreamText = await upstreamResponse.text();
-          res.status(502).json({
-            error: {
-              code: 'KAGGLE_UPSTREAM_ERROR',
-              message: `Kaggle upstream failed with ${upstreamResponse.status}`,
-              details: upstreamText.slice(0, 500),
-              timestamp: new Date().toISOString(),
-            },
-          });
-          return;
+          console.warn(`Kaggle upstream returned ${upstreamResponse.status}, falling back to HuggingFace`);
+          // Fall through to HuggingFace fallback instead of returning error
+          throw new Error(`Kaggle upstream returned ${upstreamResponse.status}`);
         }
 
         const data = (await upstreamResponse.json()) as Record<string, unknown>;

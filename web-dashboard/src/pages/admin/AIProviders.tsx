@@ -103,7 +103,7 @@ export default function AIProviders() {
     vertexai: {
       projectId: '',
       region: 'us-central1',
-      modelId: 'medgemma-2b',
+      modelId: 'medgemma-4b-it',
       accessToken: '',
       maxTokens: 500,
       temperature: 0.3,
@@ -118,7 +118,7 @@ export default function AIProviders() {
     huggingface: {
       endpoint: '',
       apiKey: '',
-      modelId: 'google/medgemma-2b-it',
+      modelId: 'google/medgemma-4b-it-it',
       maxTokens: 500,
       temperature: 0.2,
     },
@@ -211,7 +211,7 @@ export default function AIProviders() {
     'amazon.titan-text-express-v1',
   ];
 
-  const vertexaiModels = ['medgemma-2b', 'medgemma-7b', 'gemini-pro'];
+  const vertexaiModels = ['medgemma-4b-it', 'medgemma-7b', 'gemini-pro'];
 
   const openaiModels = ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'];
 

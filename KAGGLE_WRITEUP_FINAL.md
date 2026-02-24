@@ -69,7 +69,7 @@ A hard-coded danger sign detector runs **before** MedGemma and overrides the AI 
 - Judges' advantage: Same access as all teams; no proprietary cloud APIs
 
 **Fallback Provider: Kaggle Notebook**
-- Model: `medgemma-2b-it` (fully local execution)
+- Model: `medgemma-4b-it` (fully local execution)
 - Use case: Demo and reproducibility
 - Zero infrastructure requirement
 
@@ -84,7 +84,7 @@ A hard-coded danger sign detector runs **before** MedGemma and overrides the AI 
 | Provider | Model | Latency | Use Case | Access |
 |----------|-------|---------|----------|--------|
 | HuggingFace Inference | `medgemma-4b-it` | ~500ms | **Production triage** | Public API (free tier) |
-| Kaggle Notebook | `medgemma-2b-it` | ~2s | Demo & reproducibility | Fully local, no internet |
+| Kaggle Notebook | `medgemma-4b-it` | ~2s | Demo & reproducibility | Fully local, no internet |
 
 **All four MedGemma tasks** (normalize, followup, triage, referral) flow through the same provider interface, enabling transparent failover and reproducibility testing.
 

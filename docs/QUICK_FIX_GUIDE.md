@@ -90,7 +90,7 @@ Update Lambda environment variable:
 ```bash
 aws lambda update-function-configuration \
   --function-name FirstLineStack-dev-TriageHandler8ACD46B0-7Nn9mej5QzKQ \
-  --environment "Variables={TABLE_NAME=FirstLineStack-dev-FirstLineTableFF633C6D-1A6DJZOUKXHCW,REFERRAL_BUCKET=firstlinestack-dev-referralbucket51e153d7-m2nixagophas,SMS_TOPIC_ARN=arn:aws:sns:us-east-1:343218224854:FirstLineStack-dev-SMSTopic70C121FD-Vk0j4HdWi315,AI_PROVIDER=bedrock,BEDROCK_MODEL_ID=anthropic.claude-3-haiku-20240307-v1:0,VERTEXAI_MODEL_ID=medgemma-2b,GCP_PROJECT_ID=,GCP_REGION=us-central1,REGION=us-east-1,MOCK_AI=true}" \
+  --environment "Variables={TABLE_NAME=FirstLineStack-dev-FirstLineTableFF633C6D-1A6DJZOUKXHCW,REFERRAL_BUCKET=firstlinestack-dev-referralbucket51e153d7-m2nixagophas,SMS_TOPIC_ARN=arn:aws:sns:us-east-1:343218224854:FirstLineStack-dev-SMSTopic70C121FD-Vk0j4HdWi315,AI_PROVIDER=bedrock,BEDROCK_MODEL_ID=anthropic.claude-3-haiku-20240307-v1:0,VERTEXAI_MODEL_ID=medgemma-4b-it,GCP_PROJECT_ID=,GCP_REGION=us-central1,REGION=us-east-1,MOCK_AI=true}" \
   --profile firstline
 ```
 
